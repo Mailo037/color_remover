@@ -1,16 +1,57 @@
-# React + Vite
+# Color Remover
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A modern, fast, and fully in-browser tool to effortlessly remove backgrounds, extract objects, and add effects to your images. Built with React, Vite, and Tailwind CSS.
 
-Currently, two official plugins are available:
+![Color Remover Preview](public/android-chrome-512x512.png)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## ✨ Features
 
-## React Compiler
+- **🎨 Intelligent Color Removal:** Pick any color to make it transparent using an advanced color-distance algorithm.
+- **⚡ 100% Local Processing:** Uses Web Workers to process images directly in your browser. No images are ever uploaded to a server!
+- **📱 Responsive & Customizable Layout:** Pin the settings panel to the left, right, top, or bottom. Adapts perfectly to any screen size.
+- **✨ Advanced Edge Smoothing:** Creates soft transitions for clean, professional edges without pixelated borders.
+- **🎯 Multi-Color Target:** Select and remove multiple different colors at once.
+- **✂️ Auto-Crop:** Automatically trims empty transparent space around your subject.
+- **💾 Modern Formats:** Download your processed images as high-quality PNGs or compressed WebP files.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🚀 Getting Started
 
-## Expanding the ESLint configuration
+### Prerequisites
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Make sure you have [Node.js](https://nodejs.org/) installed on your machine.
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/Mailo037/color_remover.git
+   ```
+
+2. Navigate into the project directory:
+   ```bash
+   cd color_remover
+   ```
+
+3. Install the dependencies:
+   ```bash
+   npm install
+   ```
+
+4. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+5. Open your browser and visit `http://localhost:5173`.
+
+## 🛠️ Technologies Used
+
+- **React** - UI Library
+- **Vite** - Build Tool
+- **Tailwind CSS** - Styling
+- **Lucide React** - Icons
+- **Web Workers** - Heavy image processing
+
+## 👨‍💻 Author
+
+Made with ❤️ by [Mailo037](https://github.com/Mailo037).
