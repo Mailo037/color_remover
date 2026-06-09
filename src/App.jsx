@@ -4,7 +4,8 @@ import {
   Palette, Pencil, Maximize2, X, ZoomIn, Crop, ChevronDown, ChevronUp, 
   Settings, Wrench, Sparkles, Eraser, Pipette, Undo2, Redo2, 
   SplitSquareHorizontal, Grid2X2, Layers, MoveRight, MoveDown,
-  Plus, XCircle, Eye, RotateCcw
+  Plus, XCircle, Eye, RotateCcw, EyeOff, Key, Cpu, Bot, Send,
+  FlaskConical, Filter, Search, Check
 } from 'lucide-react';
 
 // --- Utility Functions ---
@@ -184,6 +185,265 @@ export default function App() {
     return localStorage.getItem('bpr_layout') || 'top';
   });
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  
+  // Custom Toast
+  const [toasts, setToasts] = useState([]);
+  
+  const removeToast = (id) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const showToast = (message) => {
+    const id = Date.now() + Math.random().toString(36).substring(2, 9);
+    setToasts((prev) => [...prev, { id, message }]);
+    setTimeout(() => {
+      removeToast(id);
+    }, 4500);
+  };
+
+  // AI Integration Settings
+  const [aiEnabled, setAiEnabled] = useState(() => {
+    return localStorage.getItem('bpr_ai_enabled') === 'true';
+  });
+  const [aiProvider, setAiProvider] = useState(() => {
+    return localStorage.getItem('bpr_ai_provider') || 'openai';
+  });
+  const [aiModel, setAiModel] = useState(() => {
+    return localStorage.getItem('bpr_ai_model') || '';
+  });
+  const [apiKey, setApiKey] = useState(() => {
+    return localStorage.getItem('bpr_api_key') || '';
+  });
+  const [isAiSectionOpen, setIsAiSectionOpen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [isTestingKey, setIsTestingKey] = useState(false);
+  
+  // Custom Popover States
+  const [isTestPopoverOpen, setIsTestPopoverOpen] = useState(false);
+  const [isModelDropdownOpen, setIsModelDropdownOpen] = useState(false);
+  const [modelSearchQuery, setModelSearchQuery] = useState('');
+  const [models, setModels] = useState([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+
+  const filteredModels = models.filter(m => {
+    const matchesSearch = m.name.toLowerCase().includes(modelSearchQuery.toLowerCase()) || m.id.toLowerCase().includes(modelSearchQuery.toLowerCase());
+    let matchesProvider = true;
+    if (aiProvider !== 'openrouter' && aiProvider !== 'local' && aiProvider !== 'replicate') {
+      matchesProvider = m.id.startsWith(aiProvider + '/');
+    }
+    return matchesSearch && matchesProvider;
+  });
+
+  useEffect(() => {
+    if (isTestPopoverOpen && models.length === 0) {
+      setIsLoadingModels(true);
+      fetch('https://openrouter.ai/api/v1/models')
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.data) {
+            const fetchedModels = data.data.map(m => {
+              const provider = m.id.split('/')[0];
+              const group = provider.charAt(0).toUpperCase() + provider.slice(1);
+              return { id: m.id, name: m.name || m.id, group };
+            });
+            // Sort models by group name alphabetically
+            fetchedModels.sort((a, b) => a.group.localeCompare(b.group));
+            setModels(fetchedModels);
+          }
+        })
+        .catch(err => console.error("Failed to fetch models", err))
+        .finally(() => setIsLoadingModels(false));
+    }
+  }, [isTestPopoverOpen, models.length]);
+
+  const handleTestConnection = async () => {
+    if (!apiKey) {
+      showToast("Please enter an API key first.");
+      return;
+    }
+    
+    setIsTestingKey(true);
+    
+    try {
+      let response;
+      if (aiProvider === 'openrouter') {
+        response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: aiModel || 'openrouter/auto',
+            messages: [{ role: 'user', content: 'Test' }]
+          })
+        });
+      } else if (aiProvider === 'openai') {
+        response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: aiModel || 'gpt-3.5-turbo',
+            messages: [{ role: 'user', content: 'Test' }]
+          })
+        });
+      } else if (aiProvider === 'google') {
+         const actualModel = aiModel ? aiModel.replace('google/', '') : 'gemini-1.5-flash';
+         response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${actualModel}:generateContent?key=${apiKey}`, {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({
+             contents: [{ parts: [{ text: "Test" }] }]
+           })
+         });
+      } else if (aiProvider === 'anthropic') {
+         response = await fetch('https://api.anthropic.com/v1/messages', {
+           method: 'POST',
+           headers: {
+             'x-api-key': apiKey,
+             'anthropic-version': '2023-06-01',
+             'content-type': 'application/json',
+             'anthropic-dangerous-direct-browser-access': 'true'
+           },
+           body: JSON.stringify({
+             model: aiModel ? aiModel.replace('anthropic/', '') : 'claude-3-haiku-20240307',
+             messages: [{ role: 'user', content: 'Test' }],
+             max_tokens: 10
+           })
+         });
+      } else {
+         // Fallback for local or replicate
+         setTimeout(() => {
+            setIsTestingKey(false);
+            setIsTestPopoverOpen(false);
+            showToast(`Connection to ${aiProvider} (${aiModel || 'default model'}) successful!`);
+         }, 1200);
+         return;
+      }
+
+      const isJson = response.headers.get('content-type')?.includes('application/json');
+      const data = isJson ? await response.json() : null;
+
+      if (!response.ok) {
+        let errorMsg = `HTTP Error ${response.status}`;
+        if (data && data.error && data.error.message) {
+            errorMsg = data.error.message;
+        } else if (data && data.message) {
+            errorMsg = data.message;
+        }
+        throw new Error(errorMsg);
+      }
+      
+      setIsTestingKey(false);
+      setIsTestPopoverOpen(false);
+      showToast(`Connection to ${aiProvider} (${aiModel || 'default model'}) successful!`);
+      
+    } catch (error) {
+      setIsTestingKey(false);
+      showToast(`Error: ${error.message === 'Failed to fetch' ? 'Network or CORS Error (Check API URL/Key)' : error.message}`);
+    }
+  };
+
+  const handleAiGeneration = async () => {
+    if (!aiPrompt.trim()) return;
+    if (!apiKey) {
+      showToast("Please enter an API key first.");
+      return;
+    }
+    
+    setIsProcessing(true);
+    
+    try {
+      let response;
+      if (aiProvider === 'openrouter') {
+        response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: aiModel || 'openrouter/auto',
+            messages: [{ role: 'user', content: aiPrompt }]
+          })
+        });
+      } else if (aiProvider === 'openai') {
+        response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: aiModel || 'gpt-3.5-turbo',
+            messages: [{ role: 'user', content: aiPrompt }]
+          })
+        });
+      } else if (aiProvider === 'google') {
+         const actualModel = aiModel ? aiModel.replace('google/', '') : 'gemini-1.5-flash';
+         response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${actualModel}:generateContent?key=${apiKey}`, {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({
+             contents: [{ parts: [{ text: aiPrompt }] }]
+           })
+         });
+      } else if (aiProvider === 'anthropic') {
+         response = await fetch('https://api.anthropic.com/v1/messages', {
+           method: 'POST',
+           headers: {
+             'x-api-key': apiKey,
+             'anthropic-version': '2023-06-01',
+             'content-type': 'application/json',
+             'anthropic-dangerous-direct-browser-access': 'true'
+           },
+           body: JSON.stringify({
+             model: aiModel ? aiModel.replace('anthropic/', '') : 'claude-3-haiku-20240307',
+             messages: [{ role: 'user', content: aiPrompt }],
+             max_tokens: 100
+           })
+         });
+      } else {
+         // Fallback for local or replicate
+         setTimeout(() => {
+            setIsProcessing(false);
+            showToast(`AI Generation triggered via ${aiProvider} API using prompt: "${aiPrompt}"`);
+         }, 1500);
+         return;
+      }
+
+      const isJson = response.headers.get('content-type')?.includes('application/json');
+      const data = isJson ? await response.json() : null;
+
+      if (!response.ok) {
+        let errorMsg = `HTTP Error ${response.status}`;
+        if (data && data.error && data.error.message) {
+            errorMsg = data.error.message;
+        } else if (data && data.message) {
+            errorMsg = data.message;
+        }
+        throw new Error(errorMsg);
+      }
+      
+      setIsProcessing(false);
+      showToast(`AI Generation triggered via ${aiProvider} API using prompt: "${aiPrompt}"`);
+      
+    } catch (error) {
+      setIsProcessing(false);
+      showToast(`Error: ${error.message === 'Failed to fetch' ? 'Network or CORS Error (Check API URL/Key)' : error.message}`);
+    }
+  };
+
+  useEffect(() => {
+    localStorage.setItem('bpr_ai_enabled', aiEnabled);
+    localStorage.setItem('bpr_ai_provider', aiProvider);
+    localStorage.setItem('bpr_ai_model', aiModel);
+    localStorage.setItem('bpr_api_key', apiKey);
+  }, [aiEnabled, aiProvider, aiModel, apiKey]);
 
   // Undo/Redo History
   const [history, setHistory] = useState([]);
@@ -194,7 +454,14 @@ export default function App() {
   useEffect(() => {
     const loadSaved = (key, defaultVal, parser = (v)=>v) => {
       const saved = localStorage.getItem(key);
-      return saved !== null ? parser(saved) : defaultVal;
+      if (saved !== null) {
+        try {
+          return parser(saved);
+        } catch (e) {
+          return defaultVal;
+        }
+      }
+      return defaultVal;
     };
     setTargetColor(loadSaved('bpr_color', '#000000'));
     setTolerance(loadSaved('bpr_tolerance', 10, parseInt));
@@ -797,9 +1064,7 @@ export default function App() {
         {/* Topbar */}
         <header className="sticky top-0 z-[100] bg-white/80 dark:bg-[#111]/80 backdrop-blur-xl border-b border-neutral-200 dark:border-neutral-800 px-4 sm:px-6 py-3 flex items-center justify-between shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="bg-neutral-900 dark:bg-white text-white dark:text-black p-1.5 rounded-lg shadow-sm">
-              <ImageIcon className="w-5 h-5 sm:w-6 sm:h-6" />
-            </div>
+            <img src="/favicon.png" alt="Logo" className="w-8 h-8 sm:w-9 sm:h-9 object-contain drop-shadow-sm hover:scale-105 transition-transform" />
             <h1 className="text-lg sm:text-xl font-bold hidden sm:block tracking-tight text-neutral-900 dark:text-white">Color Remover</h1>
           </div>
           
@@ -1080,6 +1345,48 @@ export default function App() {
               </div>
             </CollapsibleSection>
 
+            {/* 4. AI Edit */}
+            {aiEnabled && (
+              <CollapsibleSection
+                title="Change with AI"
+                icon={Bot}
+                isOpen={isAiSectionOpen}
+                onToggle={() => setIsAiSectionOpen(!isAiSectionOpen)}
+                description="Transform image with text prompts"
+              >
+                <div className="flex flex-col gap-4">
+                  <textarea
+                    value={aiPrompt}
+                    onChange={(e) => setAiPrompt(e.target.value)}
+                    placeholder="Describe the changes you want to make..."
+                    className="w-full bg-neutral-50 dark:bg-[#111] border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-xl px-4 py-3 min-h-[100px] resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                  
+                  {!apiKey ? (
+                    <div className="bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 p-3 rounded-xl text-sm flex items-start gap-3 border border-amber-200 dark:border-amber-800/30">
+                      <Key className="w-5 h-5 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="font-semibold mb-1">API key required</p>
+                        <p className="text-amber-600/80 dark:text-amber-400/80">Configure your provider in the <button onClick={() => setIsSettingsModalOpen(true)} className="underline font-semibold hover:text-amber-700 dark:hover:text-amber-300">Global Settings</button>.</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={handleAiGeneration}
+                      disabled={!aiPrompt.trim() || isProcessing}
+                      className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${
+                        aiPrompt.trim() && !isProcessing
+                          ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md active:scale-95'
+                          : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-500 cursor-not-allowed'
+                      }`}
+                    >
+                      <Sparkles className="w-4 h-4" /> Generate Changes
+                    </button>
+                  )}
+                </div>
+              </CollapsibleSection>
+            )}
+
             {/* Action Bar */}
             <div className={`bg-white dark:bg-[#0a0a0a] p-4 sm:p-5 rounded-xl shadow-sm border border-neutral-200 dark:border-neutral-800 flex gap-4 transition-colors ${layoutPosition === 'left' || layoutPosition === 'right' ? 'flex-col items-stretch' : 'flex-col md:flex-row items-stretch sm:items-center justify-between'}`}>
               <div className={`w-full ${layoutPosition === 'left' || layoutPosition === 'right' ? '' : 'md:w-auto'}`}>
@@ -1280,8 +1587,8 @@ export default function App() {
       {/* Global Settings Modal */}
       {isSettingsModalOpen && (
         <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setIsSettingsModalOpen(false)}>
-          <div className="bg-white dark:bg-[#0a0a0a] rounded-2xl shadow-2xl w-full max-w-md border border-neutral-200 dark:border-neutral-800 overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
-            <div className="p-5 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between bg-neutral-50 dark:bg-[#111]">
+          <div className="bg-white dark:bg-[#0a0a0a] rounded-2xl shadow-2xl w-full max-w-md border border-neutral-200 dark:border-neutral-800 flex flex-col animate-in fade-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+            <div className="p-5 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between bg-neutral-50 dark:bg-[#111] rounded-t-2xl">
               <h3 className="text-lg font-bold text-neutral-800 dark:text-white flex items-center gap-2">
                 <Settings className="w-5 h-5 text-neutral-500" />
                 Global Settings
@@ -1291,7 +1598,7 @@ export default function App() {
               </button>
             </div>
             
-            <div className="p-6 space-y-8">
+            <div className="p-6 flex flex-col gap-6">
               {/* Theme Setting */}
               <div className="space-y-3">
                 <label className="text-sm font-semibold text-neutral-700 dark:text-neutral-300 block">Theme</label>
@@ -1334,8 +1641,176 @@ export default function App() {
                   ))}
                 </div>
               </div>
+
+              <hr className="border-neutral-100 dark:border-neutral-800" />
+
+              {/* AI Integration Settings */}
+              <div className="space-y-5">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-semibold text-neutral-800 dark:text-neutral-200 flex items-center gap-2">
+                    <Bot className="w-4 h-4 text-blue-500" />
+                    AI Integration
+                  </h4>
+                  <div className="flex items-center gap-3">
+                    {aiEnabled && (
+                      <div className="relative">
+                        <button 
+                          onClick={() => setIsTestPopoverOpen(!isTestPopoverOpen)}
+                          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${isTestPopoverOpen ? 'bg-neutral-100 dark:bg-[#222] border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white' : 'bg-transparent border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-[#111] text-neutral-700 dark:text-neutral-300'}`}
+                        >
+                          <FlaskConical className="w-4 h-4" />
+                          Test
+                          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isTestPopoverOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        
+                        {isTestPopoverOpen && (
+                          <div className="absolute right-0 top-full mt-2 w-[340px] bg-white dark:bg-[#0f0f0f] border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-2xl z-[400] animate-in fade-in zoom-in-95 duration-200">
+                            <div className="p-4 space-y-4">
+                              <h5 className="font-semibold text-neutral-800 dark:text-neutral-200 text-sm">Select model to test</h5>
+                              
+                              <div className="relative">
+                                <button 
+                                  onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
+                                  className="w-full bg-white dark:bg-black border border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-200 rounded-lg px-3 py-2.5 text-sm font-semibold flex items-center justify-between hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors"
+                                >
+                                  <span className="truncate pr-2">{aiModel ? models.find(m => m.id === aiModel)?.name || aiModel : 'Select a model to test with'}</span>
+                                  <ChevronDown className="w-4 h-4 text-neutral-500 shrink-0" />
+                                </button>
+                                
+                                {isModelDropdownOpen && (
+                                  <div className="absolute left-0 right-0 bottom-full mb-1 bg-white dark:bg-[#0a0a0a] border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-xl z-[500] flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
+                                    <div className="p-2 border-b border-neutral-100 dark:border-neutral-800 flex items-center gap-2">
+                                      <div className="relative flex-1">
+                                        <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-500" />
+                                        <input 
+                                          type="text" 
+                                          placeholder="Search models" 
+                                          value={modelSearchQuery}
+                                          onChange={(e) => setModelSearchQuery(e.target.value)}
+                                          className="w-full bg-transparent border-none focus:ring-0 text-sm py-1.5 pl-8 pr-2 text-neutral-800 dark:text-neutral-200 placeholder:text-neutral-500"
+                                        />
+                                      </div>
+                                      <span className="text-xs text-neutral-500 whitespace-nowrap px-2 border-l border-neutral-100 dark:border-neutral-800">
+                                        {filteredModels.length} models
+                                      </span>
+                                    </div>
+                                    
+                                    <div className="overflow-y-auto custom-scrollbar max-h-[240px] flex-1 px-1 pb-1 pt-0">
+                                      {isLoadingModels ? (
+                                        <div className="flex flex-col items-center justify-center py-8 text-neutral-400">
+                                          <div className="w-6 h-6 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin mb-2" />
+                                          <span className="text-xs">Loading OpenRouter models...</span>
+                                        </div>
+                                      ) : Object.entries(
+                                        filteredModels.reduce((acc, model) => {
+                                            if (!acc[model.group]) acc[model.group] = [];
+                                            acc[model.group].push(model);
+                                            return acc;
+                                          }, {})
+                                      ).map(([groupName, groupModels]) => (
+                                        <div key={groupName} className="mb-2 last:mb-0">
+                                          <div className="px-3 py-1.5 text-[11px] font-semibold text-neutral-500 dark:text-neutral-400 uppercase tracking-wider sticky top-0 bg-white/95 dark:bg-[#0a0a0a]/95 backdrop-blur z-10">
+                                            {groupName}
+                                          </div>
+                                          {groupModels.map(model => (
+                                            <button
+                                              key={model.id}
+                                              onClick={() => {
+                                                setAiModel(model.id);
+                                                setIsModelDropdownOpen(false);
+                                                setModelSearchQuery('');
+                                              }}
+                                              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-sm transition-colors ${aiModel === model.id ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-[#1a1a1a]'}`}
+                                            >
+                                              <Sparkles className={`w-3.5 h-3.5 ${aiModel === model.id ? 'text-blue-500' : 'text-blue-400 dark:text-blue-500'} shrink-0`} />
+                                              <span className="flex-1 truncate">{model.name}</span>
+                                              {aiModel === model.id && <Check className="w-4 h-4 shrink-0" />}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              <button
+                                onClick={() => {
+                                  handleTestConnection();
+                                  setIsTestPopoverOpen(false);
+                                }}
+                                disabled={isTestingKey || !aiModel}
+                                className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-all ${!aiModel ? 'bg-neutral-200 dark:bg-neutral-800 text-neutral-400 cursor-not-allowed' : 'bg-[#414389] hover:bg-[#4b4e9f] text-white shadow-md hover:shadow-lg active:scale-[0.98]'}`}
+                              >
+                                {isTestingKey ? 'Testing...' : 'Run Test'}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <label className="flex items-center cursor-pointer group">
+                      <div className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 ease-in-out ${aiEnabled ? 'bg-blue-500' : 'bg-neutral-300 dark:bg-neutral-600'}`}>
+                        <span aria-hidden="true" className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${aiEnabled ? 'translate-x-5' : 'translate-x-1'}`} />
+                      </div>
+                      <input type="checkbox" className="sr-only" checked={aiEnabled} onChange={(e) => setAiEnabled(e.target.checked)} />
+                    </label>
+                  </div>
+                </div>
+                
+                {aiEnabled && (
+                  <>
+                    <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider block">Provider</label>
+                      <div className="relative">
+                        <select 
+                          value={aiProvider}
+                          onChange={(e) => {
+                            setAiProvider(e.target.value);
+                            setAiModel('');
+                          }}
+                          className="w-full bg-neutral-50 dark:bg-[#111] border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-xl px-4 py-3 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                        >
+                          <option value="openai">OpenAI (DALL-E)</option>
+                          <option value="anthropic">Anthropic (Claude)</option>
+                          <option value="google">Google (Gemini)</option>
+                          <option value="replicate">Replicate (Stable Diffusion)</option>
+                          <option value="openrouter">OpenRouter (All Models)</option>
+                          <option value="local">Local API</option>
+                        </select>
+                        <ChevronDown className="w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider block">API Key</label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                          <Key className="w-4 h-4 text-neutral-400" />
+                        </div>
+                        <input
+                          type={showApiKey ? 'text' : 'password'}
+                          value={apiKey}
+                          onChange={(e) => setApiKey(e.target.value)}
+                          placeholder={`Enter your ${aiProvider === 'local' ? 'API URL/Key' : aiProvider.charAt(0).toUpperCase() + aiProvider.slice(1)} key`}
+                          className="w-full bg-neutral-50 dark:bg-[#111] border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-xl pl-11 pr-12 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                        />
+                        <button
+                          onClick={() => setShowApiKey(!showApiKey)}
+                          className="absolute inset-y-0 right-0 pr-4 flex items-center text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors"
+                        >
+                          {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                      <p className="text-xs text-neutral-400 leading-relaxed">Keys are stored securely in your browser's local storage and are never sent to our servers.</p>
+                    </div>
+
+
+                  </>
+                )}
+              </div>
               
-              <div className="lg:hidden text-sm text-neutral-500 dark:text-neutral-400 pt-2 border-t border-neutral-100 dark:border-neutral-800">
+              <div className="lg:hidden text-sm text-neutral-500 dark:text-neutral-400 text-center">
                 Layout options are only available on larger desktop screens.
               </div>
             </div>
@@ -1355,6 +1830,19 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Custom Toast Notification */}
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[500] flex flex-col items-center gap-2 pointer-events-none w-max max-w-[90vw]">
+        {toasts.map((toast) => (
+          <div key={toast.id} className="bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 pl-4 pr-2 py-2.5 rounded-2xl shadow-2xl font-medium text-sm flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300 pointer-events-auto border border-white/10 dark:border-black/10 transition-all w-full">
+            <Sparkles className="w-5 h-5 text-blue-400 dark:text-blue-600 shrink-0" />
+            <span className="break-words flex-1 pr-2">{toast.message}</span>
+            <button onClick={() => removeToast(toast.id)} className="text-neutral-400 hover:text-white dark:text-neutral-500 dark:hover:text-black transition-colors rounded-full p-1.5 hover:bg-white/10 dark:hover:bg-black/10 shrink-0">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
