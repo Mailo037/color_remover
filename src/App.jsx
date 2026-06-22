@@ -110,7 +110,7 @@ const CollapsibleSection = ({ title, icon: Icon, isOpen, onToggle, children, con
       </button>
       <div className={`transition-all duration-300 ease-in-out origin-top grid ${contentOnlyOnMobile ? 'grid-rows-[1fr] opacity-100 lg:grid-rows-[0fr] lg:opacity-0' : ''} ${isOpen ? 'lg:grid-rows-[1fr] lg:opacity-100 grid-rows-[1fr] opacity-100' : 'lg:grid-rows-[0fr] lg:opacity-0 grid-rows-[0fr] opacity-0'}`}>
         <div className="overflow-hidden">
-          <div className={`${contentOnlyOnMobile ? 'p-1 sm:p-5 lg:border-t lg:border-neutral-100 lg:dark:border-neutral-800/50' : 'p-4 sm:p-5 border-t border-neutral-100 dark:border-neutral-800/50'}`}>
+          <div className={`${contentOnlyOnMobile ? 'px-2 py-2 lg:p-5 lg:border-t lg:border-neutral-100 lg:dark:border-neutral-800/50' : 'p-4 sm:p-5 border-t border-neutral-100 dark:border-neutral-800/50'}`}>
             {children}
           </div>
         </div>
@@ -1181,7 +1181,7 @@ export default function App() {
         </header>
 
         {/* Main Content Area */}
-        <main className={`flex-1 w-full mx-auto flex flex-col ${layoutPosition === 'left' || layoutPosition === 'right' ? 'max-w-none px-3 sm:px-4 pt-4 sm:pt-6 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:pb-8' : 'max-w-5xl px-3 py-4 sm:p-6 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:pb-8'}`}>
+        <main className={`flex-1 w-full mx-auto flex flex-col ${!originalImage ? 'max-w-none px-0 pt-0 pb-[calc(4.75rem+env(safe-area-inset-bottom))] lg:max-w-5xl lg:p-6 lg:pb-8' : layoutPosition === 'left' || layoutPosition === 'right' ? 'max-w-none px-3 sm:px-4 pt-4 sm:pt-6 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:pb-8' : 'max-w-5xl px-3 py-4 sm:p-6 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:pb-8'}`}>
           
           {/* Layout Wrapper */}
           <div className={`flex-1 flex flex-col gap-4 sm:gap-8 ${layoutPosition === 'left' ? 'lg:flex-row' : ''} ${layoutPosition === 'right' ? 'lg:flex-row-reverse' : ''} ${layoutPosition === 'bottom' ? 'lg:flex-col-reverse' : ''}`}>
@@ -1196,7 +1196,7 @@ export default function App() {
             
             {/* Controls Panel */}
             <div
-              className={`fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-[220] max-h-[78dvh] overflow-y-auto custom-scrollbar rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-[#0a0a0a] p-3 shadow-2xl transition-all duration-300 ease-out lg:static lg:z-auto lg:block lg:max-h-none lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none lg:transition-none space-y-3 sm:space-y-4 ${isMobileSettingsOpen ? 'block translate-y-0 opacity-100' : 'hidden translate-y-[calc(100%+2rem)] opacity-0 pointer-events-none'} lg:translate-y-0 lg:opacity-100 lg:pointer-events-auto ${layoutPosition === 'left' || layoutPosition === 'right' ? 'lg:w-[350px] xl:w-[400px] shrink-0' : 'w-full'}`}
+              className={`fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-[220] max-h-[78dvh] overflow-y-auto custom-scrollbar rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-[#0a0a0a] px-3 pb-2 pt-0 shadow-2xl transition-all duration-300 ease-out lg:static lg:z-auto lg:block lg:max-h-none lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none lg:transition-none space-y-2 lg:space-y-4 ${isMobileSettingsOpen ? 'block translate-y-0 opacity-100' : 'hidden translate-y-[calc(100%+2rem)] opacity-0 pointer-events-none'} lg:translate-y-0 lg:opacity-100 lg:pointer-events-auto ${layoutPosition === 'left' || layoutPosition === 'right' ? 'lg:w-[350px] xl:w-[400px] shrink-0' : 'w-full'}`}
               style={isMobileSettingsOpen ? { transform: `translateY(${mobileSettingsDragY}px)` } : undefined}
               onPointerMove={handleMobileSettingsDragMove}
               onPointerUp={handleMobileSettingsDragEnd}
@@ -1209,24 +1209,24 @@ export default function App() {
               onTouchEnd={handleMobileSettingsDragEnd}
             >
             <div
-              className="sticky top-0 z-10 -mx-3 -mt-3 mb-3 rounded-t-2xl border-b border-neutral-200 dark:border-neutral-800 bg-white/95 dark:bg-[#111]/95 px-4 pb-3 pt-2 backdrop-blur-xl touch-none lg:hidden"
+              className="sticky top-0 z-10 -mx-3 mb-2 rounded-t-2xl border-b border-neutral-200 dark:border-neutral-800 bg-white/95 dark:bg-[#111]/95 px-4 pb-1.5 pt-1 backdrop-blur-xl touch-none lg:hidden"
               onPointerDown={handleMobileSettingsDragStart}
               onMouseDown={handleMobileSettingsDragStart}
               onTouchStart={handleMobileSettingsDragStart}
             >
-              <div className="mx-auto mb-2 h-1.5 w-12 rounded-full bg-neutral-300 dark:bg-neutral-700" />
-              <div className="flex items-center justify-between gap-3">
+              <div className="mx-auto mb-1 h-1 w-11 rounded-full bg-neutral-300 dark:bg-neutral-700" />
+              <div className="flex min-h-9 items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-bold text-neutral-900 dark:text-white">{mobilePanelTitle}</p>
-                  <p className="text-xs text-neutral-500 dark:text-neutral-400">Drag down to close</p>
+                  <p className="text-[13px] font-bold leading-4 text-neutral-900 dark:text-white">{mobilePanelTitle}</p>
+                  <p className="text-[11px] leading-3 text-neutral-500 dark:text-neutral-400">Drag down to close</p>
                 </div>
                 <button
                   type="button"
                   onClick={closeMobileSettings}
-                  className="flex h-11 w-11 items-center justify-center rounded-full bg-neutral-100 text-neutral-600 transition-colors active:scale-95 dark:bg-neutral-800 dark:text-neutral-300"
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-100 text-neutral-600 transition-colors active:scale-95 dark:bg-neutral-800 dark:text-neutral-300"
                   aria-label="Close settings menu"
                 >
-                  <X className="h-5 w-5" />
+                  <X className="h-4 w-4" />
                 </button>
               </div>
             </div>
@@ -1584,7 +1584,7 @@ export default function App() {
 
             {processedImage && (
               <div
-                className={`fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-[220] max-h-[72dvh] overflow-y-auto custom-scrollbar rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-[#0a0a0a] p-3 shadow-2xl transition-all duration-300 ease-out lg:hidden ${isMobileExportOpen ? 'block translate-y-0 opacity-100' : 'hidden translate-y-[calc(100%+2rem)] opacity-0 pointer-events-none'}`}
+                className={`fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-[220] max-h-[72dvh] overflow-y-auto custom-scrollbar rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-[#0a0a0a] px-3 pb-2 pt-0 shadow-2xl transition-all duration-300 ease-out lg:hidden ${isMobileExportOpen ? 'block translate-y-0 opacity-100' : 'hidden translate-y-[calc(100%+2rem)] opacity-0 pointer-events-none'}`}
                 style={isMobileExportOpen ? { transform: `translateY(${mobileSettingsDragY}px)` } : undefined}
                 onPointerMove={handleMobileSettingsDragMove}
                 onPointerUp={handleMobileSettingsDragEnd}
@@ -1597,24 +1597,24 @@ export default function App() {
                 onTouchEnd={handleMobileSettingsDragEnd}
               >
                 <div
-                  className="sticky top-0 z-10 -mx-3 -mt-3 mb-3 rounded-t-2xl border-b border-neutral-200 dark:border-neutral-800 bg-white/95 dark:bg-[#111]/95 px-4 pb-3 pt-2 backdrop-blur-xl touch-none"
+                  className="sticky top-0 z-10 -mx-3 mb-2 rounded-t-2xl border-b border-neutral-200 dark:border-neutral-800 bg-white/95 dark:bg-[#111]/95 px-4 pb-1.5 pt-1 backdrop-blur-xl touch-none"
                   onPointerDown={handleMobileSettingsDragStart}
                   onMouseDown={handleMobileSettingsDragStart}
                   onTouchStart={handleMobileSettingsDragStart}
                 >
-                  <div className="mx-auto mb-2 h-1.5 w-12 rounded-full bg-neutral-300 dark:bg-neutral-700" />
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="mx-auto mb-1 h-1 w-11 rounded-full bg-neutral-300 dark:bg-neutral-700" />
+                  <div className="flex min-h-9 items-center justify-between gap-3">
                     <div>
-                      <p className="text-sm font-bold text-neutral-900 dark:text-white">Save Export</p>
-                      <p className="text-xs text-neutral-500 dark:text-neutral-400">Drag down to close</p>
+                      <p className="text-[13px] font-bold leading-4 text-neutral-900 dark:text-white">Save Export</p>
+                      <p className="text-[11px] leading-3 text-neutral-500 dark:text-neutral-400">Drag down to close</p>
                     </div>
                     <button
                       type="button"
                       onClick={closeMobileSettings}
-                      className="flex h-11 w-11 items-center justify-center rounded-full bg-neutral-100 text-neutral-600 transition-colors active:scale-95 dark:bg-neutral-800 dark:text-neutral-300"
+                      className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-100 text-neutral-600 transition-colors active:scale-95 dark:bg-neutral-800 dark:text-neutral-300"
                       aria-label="Close export menu"
                     >
-                      <X className="h-5 w-5" />
+                      <X className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
@@ -1690,10 +1690,10 @@ export default function App() {
           )}
 
           {!originalImage && (
-            <div className="transition-all duration-500 ease-out">
+            <div className="flex min-h-0 flex-1 transition-all duration-500 ease-out">
               <button
                 onClick={() => fileInputRef.current.click()}
-                className="w-full min-h-[280px] sm:min-h-[360px] rounded-2xl border border-dashed border-neutral-300 dark:border-neutral-700 bg-white dark:bg-[#0a0a0a] shadow-sm flex flex-col items-center justify-center gap-5 p-6 text-center hover:border-neutral-500 dark:hover:border-neutral-500 hover:bg-neutral-100/60 dark:hover:bg-[#111] transition-all active:scale-[0.99]"
+                className="flex min-h-[calc(100dvh-9.625rem-env(safe-area-inset-bottom))] w-full flex-1 flex-col items-center justify-center gap-5 rounded-none border-y border-dashed border-neutral-300 bg-white p-6 text-center shadow-sm transition-all hover:border-neutral-500 hover:bg-neutral-100/60 active:scale-[0.99] dark:border-neutral-700 dark:bg-[#0a0a0a] dark:hover:border-neutral-500 dark:hover:bg-[#111] lg:min-h-[360px] lg:rounded-2xl lg:border"
               >
                 <span className="w-16 h-16 rounded-2xl bg-neutral-900 dark:bg-white text-white dark:text-black flex items-center justify-center shadow-lg">
                   <Upload className="w-7 h-7" />
@@ -1844,7 +1844,7 @@ export default function App() {
         </main>
 
         <nav className="fixed inset-x-0 bottom-0 z-[180] border-t border-neutral-200 bg-white/95 px-3 pt-2 app-safe-bottom shadow-[0_-10px_30px_rgba(0,0,0,0.08)] backdrop-blur-xl dark:border-neutral-800 dark:bg-[#0a0a0a]/95 lg:hidden">
-          <div className="mx-auto grid max-w-md grid-cols-4 gap-1.5">
+          <div className={`mx-auto grid max-w-md gap-1.5 ${aiEnabled ? 'grid-cols-5' : 'grid-cols-4'}`}>
             <button
               type="button"
               onClick={() => openMobilePanel('basic')}
@@ -1869,6 +1869,16 @@ export default function App() {
               <Layers className="h-5 w-5" />
               Effects
             </button>
+            {aiEnabled && (
+              <button
+                type="button"
+                onClick={() => openMobilePanel('ai')}
+                className={`flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-semibold transition-colors active:scale-95 ${isMobileSettingsOpen && activeMobilePanel === 'ai' ? 'bg-neutral-900 text-white dark:bg-white dark:text-black' : 'text-neutral-600 dark:text-neutral-300'}`}
+              >
+                <Bot className="h-5 w-5" />
+                AI
+              </button>
+            )}
             <button
               type="button"
               onClick={openMobileExport}
@@ -1958,10 +1968,10 @@ export default function App() {
                   </h4>
                   <div className="flex items-center gap-3">
                     {aiEnabled && (
-                      <div className="relative">
+                      <div className="relative w-full sm:w-auto">
                         <button 
                           onClick={() => setIsTestPopoverOpen(!isTestPopoverOpen)}
-                          className={`flex items-center gap-2 px-3 py-2.5 min-h-[44px] rounded-lg text-sm font-medium border transition-colors ${isTestPopoverOpen ? 'bg-neutral-100 dark:bg-[#222] border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white' : 'bg-transparent border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-[#111] text-neutral-700 dark:text-neutral-300'}`}
+                          className={`flex w-full sm:w-auto items-center justify-center gap-2 px-3 py-2.5 min-h-[44px] rounded-lg text-sm font-medium border transition-colors ${isTestPopoverOpen ? 'bg-neutral-100 dark:bg-[#222] border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white' : 'bg-transparent border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-[#111] text-neutral-700 dark:text-neutral-300'}`}
                         >
                           <FlaskConical className="w-4 h-4" />
                           Test
@@ -1969,11 +1979,24 @@ export default function App() {
                         </button>
                         
                         {isTestPopoverOpen && (
-                          <div className="fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-[340px] bg-white dark:bg-[#0f0f0f] border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-2xl z-[400] animate-in fade-in zoom-in-95 duration-200">
-                            <div className="p-4 space-y-4">
-                              <h5 className="font-semibold text-neutral-800 dark:text-neutral-200 text-sm">Select model to test</h5>
+                          <div className="fixed inset-x-4 top-[calc(1rem+env(safe-area-inset-top))] bottom-[calc(1rem+env(safe-area-inset-bottom))] sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[340px] sm:max-h-none bg-white dark:bg-[#0f0f0f] border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-2xl z-[400] animate-in fade-in zoom-in-95 duration-200">
+                            <div className="p-4 min-h-0 h-full sm:h-auto flex flex-col gap-4">
+                              <div className="flex items-center justify-between gap-3 shrink-0">
+                                <h5 className="font-semibold text-neutral-800 dark:text-neutral-200 text-sm">Select model to test</h5>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setIsTestPopoverOpen(false);
+                                    setIsModelDropdownOpen(false);
+                                  }}
+                                  className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-100 text-neutral-500 transition-colors hover:text-neutral-800 active:scale-95 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-100 sm:hidden"
+                                  aria-label="Close model test"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
                               
-                              <div className="relative">
+                              <div className="relative min-h-0 flex-1 sm:flex-none">
                                 <button 
                                   onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
                                   className="w-full bg-white dark:bg-black border border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-200 rounded-lg px-3 py-2.5 min-h-[44px] text-sm font-semibold flex items-center justify-between hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors"
@@ -1983,7 +2006,7 @@ export default function App() {
                                 </button>
                                 
                                 {isModelDropdownOpen && (
-                                  <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-[#0a0a0a] border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-xl z-[500] flex flex-col overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                  <div className="static mt-2 sm:absolute sm:left-0 sm:right-0 sm:top-full sm:mt-1 bg-white dark:bg-[#0a0a0a] border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-xl z-[500] flex max-h-[calc(100dvh-12rem)] sm:max-h-none flex-col overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                                     <div className="p-2 border-b border-neutral-100 dark:border-neutral-800 flex items-center gap-2">
                                       <div className="relative flex-1">
                                         <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-500" />
@@ -2000,7 +2023,7 @@ export default function App() {
                                       </span>
                                     </div>
                                     
-                                    <div className="overflow-y-auto custom-scrollbar max-h-[min(240px,42dvh)] flex-1 px-1 pb-1 pt-0">
+                                    <div className="overflow-y-auto custom-scrollbar max-h-[calc(100dvh-18rem)] sm:max-h-[240px] flex-1 px-1 pb-1 pt-0">
                                       {isLoadingModels ? (
                                         <div className="flex flex-col items-center justify-center py-8 text-neutral-400">
                                           <div className="w-6 h-6 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin mb-2" />
