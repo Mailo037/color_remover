@@ -1,6 +1,66 @@
 @import "tailwindcss";
 @custom-variant dark (&:is(.dark, .dark *));
 
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  min-width: 320px;
+  overscroll-behavior-y: none;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+
+input[type="range"] {
+  touch-action: pan-y;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 9999px;
+  background: #171717;
+  border: 3px solid #ffffff;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.18);
+}
+
+.dark input[type="range"]::-webkit-slider-thumb {
+  background: #fafafa;
+  border-color: #18181b;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 9999px;
+  background: #171717;
+  border: 3px solid #ffffff;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.18);
+}
+
+.dark input[type="range"]::-moz-range-thumb {
+  background: #fafafa;
+  border-color: #18181b;
+}
+
+.app-safe-top {
+  padding-top: max(0.75rem, env(safe-area-inset-top));
+}
+
+.app-safe-bottom {
+  padding-bottom: max(1rem, env(safe-area-inset-bottom));
+}
+
 /* Custom Scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;

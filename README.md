@@ -42,7 +42,7 @@ Make sure you have [Node.js](https://nodejs.org/) installed on your machine.
    npm run dev
    ```
 
-5. Open your browser and visit `http://localhost:5173`.
+5. Open your browser and visit `http://localhost:5175`.
 
 ## 🛠️ Technologies Used
 

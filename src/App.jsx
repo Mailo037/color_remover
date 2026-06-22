@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { 
-  Upload, Download, Image as ImageIcon, SlidersHorizontal, Moon, Sun, 
+import { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  Upload, Download, SlidersHorizontal, Moon, Sun,
   Palette, Pencil, Maximize2, X, ZoomIn, Crop, ChevronDown, ChevronUp, 
   Settings, Wrench, Sparkles, Eraser, Pipette, Undo2, Redo2, 
-  SplitSquareHorizontal, Grid2X2, Layers, MoveRight, MoveDown,
-  Plus, XCircle, Eye, RotateCcw, EyeOff, Key, Cpu, Bot, Send,
-  FlaskConical, Filter, Search, Check
+  SplitSquareHorizontal, Grid2X2, Layers, MoveDown,
+  Plus, Eye, RotateCcw, EyeOff, Key, Bot,
+  FlaskConical, Search, Check
 } from 'lucide-react';
 
 // --- Utility Functions ---
@@ -94,22 +94,23 @@ const EditableNumber = ({ value, onChange, min, max }) => {
   );
 };
 
-const CollapsibleSection = ({ title, icon: Icon, isOpen, onToggle, children }) => {
+const CollapsibleSection = ({ title, icon: Icon, isOpen, onToggle, children, contentOnlyOnMobile = false }) => {
   return (
-    <div className="border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden transition-colors bg-white dark:bg-[#0a0a0a]">
+    <div className={`${contentOnlyOnMobile ? 'border-0 bg-transparent lg:border lg:border-neutral-200 lg:dark:border-neutral-800 lg:rounded-xl lg:overflow-hidden lg:bg-white lg:dark:bg-[#0a0a0a]' : 'border border-neutral-200 dark:border-neutral-800 rounded-xl overflow-hidden bg-white dark:bg-[#0a0a0a]'} transition-colors`}>
       <button
         onClick={onToggle}
-        className="w-full flex items-center justify-between p-4 sm:p-5 bg-neutral-50/50 dark:bg-[#111]/50 hover:bg-neutral-100 dark:hover:bg-[#1a1a1a] transition-colors focus:outline-none min-h-[60px]"
+        className={`${contentOnlyOnMobile ? 'hidden lg:flex' : 'flex'} w-full items-center justify-between gap-3 p-4 sm:p-5 bg-neutral-50/50 dark:bg-[#111]/50 hover:bg-neutral-100 dark:hover:bg-[#1a1a1a] transition-colors focus:outline-none min-h-[60px] text-left`}
+        aria-expanded={isOpen}
       >
-        <div className="flex items-center gap-3 font-semibold text-neutral-800 dark:text-neutral-200">
+        <div className="flex items-center gap-3 font-semibold text-neutral-800 dark:text-neutral-200 min-w-0">
           <Icon className="w-5 h-5 text-neutral-500" />
-          {title}
+          <span className="truncate">{title}</span>
         </div>
         {isOpen ? <ChevronUp className="w-5 h-5 text-neutral-400 transition-transform" /> : <ChevronDown className="w-5 h-5 text-neutral-400 transition-transform" />}
       </button>
-      <div className={`transition-all duration-300 ease-in-out origin-top grid ${isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+      <div className={`transition-all duration-300 ease-in-out origin-top grid ${contentOnlyOnMobile ? 'grid-rows-[1fr] opacity-100 lg:grid-rows-[0fr] lg:opacity-0' : ''} ${isOpen ? 'lg:grid-rows-[1fr] lg:opacity-100 grid-rows-[1fr] opacity-100' : 'lg:grid-rows-[0fr] lg:opacity-0 grid-rows-[0fr] opacity-0'}`}>
         <div className="overflow-hidden">
-          <div className="p-4 sm:p-5 border-t border-neutral-100 dark:border-neutral-800/50">
+          <div className={`${contentOnlyOnMobile ? 'p-1 sm:p-5 lg:border-t lg:border-neutral-100 lg:dark:border-neutral-800/50' : 'p-4 sm:p-5 border-t border-neutral-100 dark:border-neutral-800/50'}`}>
             {children}
           </div>
         </div>
@@ -188,6 +189,13 @@ export default function App() {
   
   // Custom Toast
   const [toasts, setToasts] = useState([]);
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
+  const [isMobileSettingsOpen, setIsMobileSettingsOpen] = useState(false);
+  const [isMobileExportOpen, setIsMobileExportOpen] = useState(false);
+  const [activeMobilePanel, setActiveMobilePanel] = useState('basic');
+  const [mobileSettingsDragY, setMobileSettingsDragY] = useState(0);
+  const mobileSettingsDragStart = useRef(null);
+  const mobileSettingsDragDistance = useRef(0);
   
   const removeToast = (id) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -457,7 +465,7 @@ export default function App() {
       if (saved !== null) {
         try {
           return parser(saved);
-        } catch (e) {
+        } catch {
           return defaultVal;
         }
       }
@@ -601,6 +609,8 @@ export default function App() {
 
   // Reset all settings to their defaults and clear stored values.
   const resetSettings = () => {
+    setIsExportMenuOpen(false);
+    setIsMobileExportOpen(false);
     setTargetColor('#000000');
     setColors(['#000000']);
     setMultiColors(false);
@@ -634,6 +644,12 @@ export default function App() {
       if (e.key === 'Escape') {
         setZoomedImage({ src: null, isTransparent: false });
         setIsPickingColor(false);
+        setIsExportMenuOpen(false);
+        setIsTestPopoverOpen(false);
+        setIsModelDropdownOpen(false);
+        setIsMobileSettingsOpen(false);
+        setIsMobileExportOpen(false);
+        setMobileSettingsDragY(0);
       }
       
       // Handle Undo (Ctrl+Z) and Redo (Ctrl+Shift+Z)
@@ -666,6 +682,9 @@ export default function App() {
   // File Handling (Upload, Drag&Drop, Paste)
   const processUploadedFile = (file) => {
     if (!file || !file.type.startsWith('image/')) return;
+    setIsExportMenuOpen(false);
+    setIsMobileSettingsOpen(false);
+    setIsMobileExportOpen(false);
     const lastDot = file.name.lastIndexOf('.');
     const nameWithoutExt = lastDot !== -1 ? file.name.substring(0, lastDot) : file.name || 'pasted_image';
     setOutputFilename(`${nameWithoutExt}_transparent`);
@@ -981,7 +1000,7 @@ export default function App() {
                 });
               }
             }, 'image/png');
-          } catch (ex) {
+          } catch {
             // ignore mask generation errors
           }
         })();
@@ -1045,58 +1064,176 @@ export default function App() {
     backgroundSize: '20px 20px'
   };
 
+  const updateCompareSliderFromClientX = useCallback((clientX, element) => {
+    const rect = element.getBoundingClientRect();
+    const nextPosition = ((clientX - rect.left) / rect.width) * 100;
+    setCompareSliderPos(Math.max(0, Math.min(100, nextPosition)));
+  }, []);
+
+  const closeMobileSettings = useCallback(() => {
+    setIsMobileSettingsOpen(false);
+    setIsMobileExportOpen(false);
+    setMobileSettingsDragY(0);
+    mobileSettingsDragStart.current = null;
+    mobileSettingsDragDistance.current = 0;
+  }, []);
+
+  const openMobilePanel = useCallback((panel) => {
+    setIsMobileExportOpen(false);
+    setIsMobileSettingsOpen(true);
+    setActiveMobilePanel(panel);
+    setMobileSettingsDragY(0);
+    mobileSettingsDragStart.current = null;
+    mobileSettingsDragDistance.current = 0;
+
+    setIsBasicOpen(panel === 'basic');
+    setIsAdvancedOpen(panel === 'advanced');
+    setIsEffectsOpen(panel === 'effects');
+    setIsAiSectionOpen(panel === 'ai');
+  }, []);
+
+  const openMobileExport = useCallback(() => {
+    if (!processedImage) return;
+    setIsMobileSettingsOpen(false);
+    setIsMobileExportOpen(true);
+    setMobileSettingsDragY(0);
+    mobileSettingsDragStart.current = null;
+    mobileSettingsDragDistance.current = 0;
+  }, [processedImage]);
+
+  const getDragClientY = (e) => {
+    return e.touches?.[0]?.clientY ?? e.changedTouches?.[0]?.clientY ?? e.clientY;
+  };
+
+  const handleMobileSettingsDragStart = useCallback((e) => {
+    mobileSettingsDragStart.current = getDragClientY(e);
+    mobileSettingsDragDistance.current = 0;
+    setMobileSettingsDragY(0);
+    if (e.pointerId !== undefined && e.currentTarget.setPointerCapture) {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    }
+  }, []);
+
+  const handleMobileSettingsDragMove = useCallback((e) => {
+    if (mobileSettingsDragStart.current === null) return;
+    e.preventDefault();
+    const distance = Math.max(0, getDragClientY(e) - mobileSettingsDragStart.current);
+    mobileSettingsDragDistance.current = distance;
+    setMobileSettingsDragY(distance);
+  }, []);
+
+  const handleMobileSettingsDragEnd = useCallback(() => {
+    if (mobileSettingsDragDistance.current > 80) {
+      closeMobileSettings();
+      return;
+    }
+    mobileSettingsDragStart.current = null;
+    mobileSettingsDragDistance.current = 0;
+    setMobileSettingsDragY(0);
+  }, [closeMobileSettings]);
+
+  const mobilePanelTitle = {
+    basic: 'Basic Settings',
+    advanced: 'Advanced Settings',
+    effects: 'Effects & Styling',
+    ai: 'Change with AI',
+  }[activeMobilePanel] || 'Settings';
+
   return (
     <div 
-      className={`${isDarkMode ? 'dark' : ''} min-h-screen`}
+      className={`${isDarkMode ? 'dark' : ''} min-h-[100dvh]`}
       onDragEnter={onDragEnter} onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
     >
       {/* Global Drag Overlay */}
       {isDragging && (
-        <div className="fixed inset-0 z-[200] bg-blue-500/80 backdrop-blur-sm flex flex-col items-center justify-center text-white pointer-events-none">
-          <Upload className="w-24 h-24 mb-4 animate-bounce" />
-          <h2 className="text-4xl font-bold">Drop Image Here</h2>
+        <div className="fixed inset-0 z-[200] bg-blue-500/80 backdrop-blur-sm flex flex-col items-center justify-center text-white pointer-events-none px-6 text-center">
+          <Upload className="w-20 h-20 sm:w-24 sm:h-24 mb-4 animate-bounce" />
+          <h2 className="text-3xl sm:text-4xl font-bold">Drop Image Here</h2>
           <p className="mt-2 opacity-80">Release to process the file.</p>
         </div>
       )}
 
-      <div className="min-h-screen flex flex-col bg-neutral-50 dark:bg-[#0a0a0a] text-neutral-900 dark:text-neutral-100 font-sans transition-colors duration-200">
+      <div className="min-h-[100dvh] flex flex-col bg-neutral-50 dark:bg-[#0a0a0a] text-neutral-900 dark:text-neutral-100 font-sans transition-colors duration-200">
         
         {/* Topbar */}
-        <header className="sticky top-0 z-[100] bg-white/80 dark:bg-[#111]/80 backdrop-blur-xl border-b border-neutral-200 dark:border-neutral-800 px-4 sm:px-6 py-3 flex items-center justify-between shadow-sm">
-          <div className="flex items-center gap-3">
+        <header className="sticky top-0 z-[100] bg-white/85 dark:bg-[#111]/85 backdrop-blur-xl border-b border-neutral-200 dark:border-neutral-800 px-3 sm:px-6 py-2.5 sm:py-3 app-safe-top flex items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <img src="/favicon.png" alt="Logo" className="w-8 h-8 sm:w-9 sm:h-9 object-contain drop-shadow-sm hover:scale-105 transition-transform" />
-            <h1 className="text-lg sm:text-xl font-bold hidden sm:block tracking-tight text-neutral-900 dark:text-white">Color Remover</h1>
+            <h1 className="hidden min-[380px]:block text-base sm:text-xl font-bold tracking-tight text-neutral-900 dark:text-white truncate">Color Remover</h1>
           </div>
           
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
             <div className="flex bg-neutral-100/80 dark:bg-[#1a1a1a]/80 rounded-full border border-neutral-200 dark:border-neutral-800 p-1">
-              <button onClick={handleUndo} disabled={historyIndex <= 0} className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full hover:bg-white dark:hover:bg-[#2a2a2a] disabled:opacity-30 disabled:hover:bg-transparent transition-colors" title="Undo (Ctrl+Z)">
+              <button onClick={handleUndo} disabled={historyIndex <= 0} className="w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-full hover:bg-white dark:hover:bg-[#2a2a2a] disabled:opacity-30 disabled:hover:bg-transparent transition-colors active:scale-95" title="Undo (Ctrl+Z)" aria-label="Undo">
                 <Undo2 className="w-4 h-4 text-neutral-600 dark:text-neutral-300" />
               </button>
-              <button onClick={handleRedo} disabled={historyIndex >= history.length - 1} className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full hover:bg-white dark:hover:bg-[#2a2a2a] disabled:opacity-30 disabled:hover:bg-transparent transition-colors" title="Redo (Ctrl+Y or Ctrl+Shift+Z)">
+              <button onClick={handleRedo} disabled={historyIndex >= history.length - 1} className="w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-full hover:bg-white dark:hover:bg-[#2a2a2a] disabled:opacity-30 disabled:hover:bg-transparent transition-colors active:scale-95" title="Redo (Ctrl+Y or Ctrl+Shift+Z)" aria-label="Redo">
                 <Redo2 className="w-4 h-4 text-neutral-600 dark:text-neutral-300" />
               </button>
             </div>
-            <button onClick={resetSettings} className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-neutral-100/80 dark:bg-[#1a1a1a]/80 border border-neutral-200 dark:border-neutral-800 hover:bg-white dark:hover:bg-[#2a2a2a] transition-all duration-300 hover:rotate-12 active:scale-90 shadow-sm" title="Reset All Settings">
+            <button onClick={resetSettings} className="w-11 h-11 flex items-center justify-center rounded-full bg-neutral-100/80 dark:bg-[#1a1a1a]/80 border border-neutral-200 dark:border-neutral-800 hover:bg-white dark:hover:bg-[#2a2a2a] transition-all duration-300 hover:rotate-12 active:scale-90 shadow-sm" title="Reset All Settings" aria-label="Reset all settings">
               <RotateCcw className="w-4 h-4 sm:w-5 sm:h-5 text-neutral-600 dark:text-neutral-300" />
             </button>
-            <button onClick={() => setIsSettingsModalOpen(true)} className="w-10 h-10 sm:w-11 sm:h-11 flex items-center justify-center rounded-full bg-neutral-100/80 dark:bg-[#1a1a1a]/80 border border-neutral-200 dark:border-neutral-800 hover:bg-white dark:hover:bg-[#2a2a2a] transition-all duration-300 hover:rotate-12 active:scale-90 shadow-sm" title="Global Settings">
+            <button onClick={() => setIsSettingsModalOpen(true)} className="w-11 h-11 flex items-center justify-center rounded-full bg-neutral-100/80 dark:bg-[#1a1a1a]/80 border border-neutral-200 dark:border-neutral-800 hover:bg-white dark:hover:bg-[#2a2a2a] transition-all duration-300 hover:rotate-12 active:scale-90 shadow-sm" title="Global Settings" aria-label="Open global settings">
               <Settings className="w-4 h-4 sm:w-5 sm:h-5 text-neutral-600 dark:text-neutral-300" />
             </button>
           </div>
         </header>
 
         {/* Main Content Area */}
-        <main className={`flex-1 w-full mx-auto pb-12 sm:pb-8 flex flex-col ${layoutPosition === 'left' || layoutPosition === 'right' ? 'max-w-none px-2 sm:px-4 pt-4 sm:pt-6' : 'max-w-5xl p-4 sm:p-6'}`}>
+        <main className={`flex-1 w-full mx-auto flex flex-col ${layoutPosition === 'left' || layoutPosition === 'right' ? 'max-w-none px-3 sm:px-4 pt-4 sm:pt-6 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:pb-8' : 'max-w-5xl px-3 py-4 sm:p-6 pb-[calc(5rem+env(safe-area-inset-bottom))] sm:pb-8'}`}>
           
           {/* Layout Wrapper */}
-          <div className={`flex-1 flex flex-col gap-6 sm:gap-8 ${layoutPosition === 'left' ? 'lg:flex-row' : ''} ${layoutPosition === 'right' ? 'lg:flex-row-reverse' : ''} ${layoutPosition === 'bottom' ? 'lg:flex-col-reverse' : ''}`}>
+          <div className={`flex-1 flex flex-col gap-4 sm:gap-8 ${layoutPosition === 'left' ? 'lg:flex-row' : ''} ${layoutPosition === 'right' ? 'lg:flex-row-reverse' : ''} ${layoutPosition === 'bottom' ? 'lg:flex-col-reverse' : ''}`}>
+            {(isMobileSettingsOpen || isMobileExportOpen) && (
+              <button
+                type="button"
+                className="fixed inset-0 z-[190] bg-black/30 backdrop-blur-[1px] lg:hidden"
+                onClick={closeMobileSettings}
+                aria-label="Close settings menu"
+              />
+            )}
             
             {/* Controls Panel */}
-            <div className={`space-y-4 ${layoutPosition === 'left' || layoutPosition === 'right' ? 'lg:w-[350px] xl:w-[400px] shrink-0' : 'w-full'}`}>
+            <div
+              className={`fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-[220] max-h-[78dvh] overflow-y-auto custom-scrollbar rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-[#0a0a0a] p-3 shadow-2xl transition-all duration-300 ease-out lg:static lg:z-auto lg:block lg:max-h-none lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent lg:p-0 lg:shadow-none lg:transition-none space-y-3 sm:space-y-4 ${isMobileSettingsOpen ? 'block translate-y-0 opacity-100' : 'hidden translate-y-[calc(100%+2rem)] opacity-0 pointer-events-none'} lg:translate-y-0 lg:opacity-100 lg:pointer-events-auto ${layoutPosition === 'left' || layoutPosition === 'right' ? 'lg:w-[350px] xl:w-[400px] shrink-0' : 'w-full'}`}
+              style={isMobileSettingsOpen ? { transform: `translateY(${mobileSettingsDragY}px)` } : undefined}
+              onPointerMove={handleMobileSettingsDragMove}
+              onPointerUp={handleMobileSettingsDragEnd}
+              onPointerCancel={handleMobileSettingsDragEnd}
+              onMouseMove={(e) => {
+                if (e.buttons === 1) handleMobileSettingsDragMove(e);
+              }}
+              onMouseUp={handleMobileSettingsDragEnd}
+              onTouchMove={handleMobileSettingsDragMove}
+              onTouchEnd={handleMobileSettingsDragEnd}
+            >
+            <div
+              className="sticky top-0 z-10 -mx-3 -mt-3 mb-3 rounded-t-2xl border-b border-neutral-200 dark:border-neutral-800 bg-white/95 dark:bg-[#111]/95 px-4 pb-3 pt-2 backdrop-blur-xl touch-none lg:hidden"
+              onPointerDown={handleMobileSettingsDragStart}
+              onMouseDown={handleMobileSettingsDragStart}
+              onTouchStart={handleMobileSettingsDragStart}
+            >
+              <div className="mx-auto mb-2 h-1.5 w-12 rounded-full bg-neutral-300 dark:bg-neutral-700" />
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-bold text-neutral-900 dark:text-white">{mobilePanelTitle}</p>
+                  <p className="text-xs text-neutral-500 dark:text-neutral-400">Drag down to close</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeMobileSettings}
+                  className="flex h-11 w-11 items-center justify-center rounded-full bg-neutral-100 text-neutral-600 transition-colors active:scale-95 dark:bg-neutral-800 dark:text-neutral-300"
+                  aria-label="Close settings menu"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </div>
             
             {/* 1. Basic Settings */}
-            <CollapsibleSection title="Basic Settings" icon={Settings} isOpen={isBasicOpen} onToggle={() => setIsBasicOpen(!isBasicOpen)}>
+            <div className={activeMobilePanel === 'basic' ? 'block' : 'hidden lg:block'}>
+            <CollapsibleSection title="Basic Settings" icon={Settings} isOpen={isBasicOpen} onToggle={() => setIsBasicOpen(!isBasicOpen)} contentOnlyOnMobile>
               <div className="flex flex-col gap-6 sm:gap-8">
                 <div className={`grid gap-6 sm:gap-8 ${layoutPosition === 'left' || layoutPosition === 'right' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
                   {/* Target Color Picker + Pipette */}
@@ -1136,9 +1273,9 @@ export default function App() {
                       <Eraser className="w-4 h-4" /> Replace With
                     </label>
                     <div className="flex flex-col gap-4">
-                      <div className="flex p-1 bg-neutral-100 dark:bg-[#111] border border-neutral-200 dark:border-neutral-800 rounded-lg w-fit">
-                        <button onClick={() => setReplaceTransparent(true)} className={`px-4 py-1.5 text-sm rounded-md transition-all duration-200 ${replaceTransparent ? 'bg-white dark:bg-neutral-800 shadow-sm text-neutral-900 dark:text-white font-medium' : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'}`}>Transparency</button>
-                        <button onClick={() => setReplaceTransparent(false)} className={`px-4 py-1.5 text-sm rounded-md transition-all duration-200 ${!replaceTransparent ? 'bg-white dark:bg-neutral-800 shadow-sm text-neutral-900 dark:text-white font-medium' : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'}`}>Solid Color</button>
+                       <div className="flex p-1 bg-neutral-100 dark:bg-[#111] border border-neutral-200 dark:border-neutral-800 rounded-lg w-full sm:w-fit">
+                        <button onClick={() => setReplaceTransparent(true)} className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-1.5 min-h-[44px] sm:min-h-0 text-sm rounded-md transition-all duration-200 ${replaceTransparent ? 'bg-white dark:bg-neutral-800 shadow-sm text-neutral-900 dark:text-white font-medium' : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'}`}>Transparency</button>
+                        <button onClick={() => setReplaceTransparent(false)} className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-1.5 min-h-[44px] sm:min-h-0 text-sm rounded-md transition-all duration-200 ${!replaceTransparent ? 'bg-white dark:bg-neutral-800 shadow-sm text-neutral-900 dark:text-white font-medium' : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'}`}>Solid Color</button>
                       </div>
                       {!replaceTransparent && (
                         <div className="flex items-center gap-4 animate-in fade-in slide-in-from-top-2 duration-200">
@@ -1166,7 +1303,7 @@ export default function App() {
                 </div>
                 {/* Multi-Color Removal Feature */}
                 <div className="flex flex-col gap-4">
-                  <label className="flex items-center gap-3 cursor-pointer text-sm font-medium text-neutral-700 dark:text-neutral-300 w-fit select-none group" onClick={(e) => { e.preventDefault(); setMultiColors(!multiColors); }}>
+                  <label className="flex items-center gap-3 cursor-pointer text-sm font-medium text-neutral-700 dark:text-neutral-300 w-full sm:w-fit min-h-[44px] select-none group" onClick={(e) => { e.preventDefault(); setMultiColors(!multiColors); }}>
                     <div className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 ease-in-out ${multiColors ? 'bg-blue-500' : 'bg-neutral-300 dark:bg-neutral-600'}`}>
                       <span aria-hidden="true" className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${multiColors ? 'translate-x-5' : 'translate-x-1'}`} />
                     </div>
@@ -1175,7 +1312,7 @@ export default function App() {
                   {multiColors && (
                     <div className="flex flex-col gap-3 pl-1">
                       {colors.map((c, idx) => (
-                        <div key={idx} className="flex items-center gap-3">
+                        <div key={idx} className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
                           <div className="relative w-10 h-10 rounded-lg overflow-hidden border border-neutral-200 dark:border-neutral-700 shrink-0 cursor-pointer focus-within:ring-2 focus-within:ring-neutral-400 transition-all hover:scale-105 active:scale-95">
                             <input 
                               type="color"
@@ -1221,8 +1358,9 @@ export default function App() {
                                   return arr;
                                 });
                               }}
-                              className="p-2 rounded-full bg-neutral-50 dark:bg-[#111] border border-neutral-200 dark:border-neutral-800 hover:bg-red-100 dark:hover:bg-red-800/40 transition-colors"
+                              className="w-11 h-11 sm:w-10 sm:h-10 flex items-center justify-center rounded-full bg-neutral-50 dark:bg-[#111] border border-neutral-200 dark:border-neutral-800 hover:bg-red-100 dark:hover:bg-red-800/40 transition-colors active:scale-95"
                               title="Remove color"
+                              aria-label="Remove color"
                             >
                               <X className="w-4 h-4 text-red-500" />
                             </button>
@@ -1233,7 +1371,7 @@ export default function App() {
                         onClick={() => {
                           setColors((prev) => [...prev, '#000000']);
                         }}
-                        className="flex items-center gap-2 px-3 py-2 w-fit text-sm rounded-md bg-neutral-200/60 dark:bg-neutral-700/60 hover:bg-neutral-300 dark:hover:bg-neutral-600 transition-colors"
+                        className="flex items-center justify-center gap-2 px-4 py-2.5 min-h-[44px] w-full sm:w-fit text-sm rounded-md bg-neutral-200/60 dark:bg-neutral-700/60 hover:bg-neutral-300 dark:hover:bg-neutral-600 transition-colors active:scale-[0.98]"
                         title="Add another color"
                       >
                         <Plus className="w-4 h-4" /> Add Color
@@ -1243,9 +1381,11 @@ export default function App() {
                 </div>
               </div>
             </CollapsibleSection>
+            </div>
 
             {/* 2. Advanced Settings */}
-            <CollapsibleSection title="Advanced Settings" icon={Wrench} isOpen={isAdvancedOpen} onToggle={() => setIsAdvancedOpen(!isAdvancedOpen)}>
+            <div className={activeMobilePanel === 'advanced' ? 'block' : 'hidden lg:block'}>
+            <CollapsibleSection title="Advanced Settings" icon={Wrench} isOpen={isAdvancedOpen} onToggle={() => setIsAdvancedOpen(!isAdvancedOpen)} contentOnlyOnMobile>
               <div className="flex flex-col gap-8">
                 <div className={`grid gap-6 sm:gap-8 ${layoutPosition === 'left' || layoutPosition === 'right' ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
                   <div className="flex-1">
@@ -1296,12 +1436,14 @@ export default function App() {
               </div>
               </div>
             </CollapsibleSection>
+            </div>
 
             {/* 3. Effects & Styling */}
-            <CollapsibleSection title="Effects & Styling" icon={Layers} isOpen={isEffectsOpen} onToggle={() => setIsEffectsOpen(!isEffectsOpen)}>
+            <div className={activeMobilePanel === 'effects' ? 'block' : 'hidden lg:block'}>
+            <CollapsibleSection title="Effects & Styling" icon={Layers} isOpen={isEffectsOpen} onToggle={() => setIsEffectsOpen(!isEffectsOpen)} contentOnlyOnMobile>
               <div className="flex flex-col gap-6">
                 <label 
-                  className="flex items-center gap-3 cursor-pointer text-sm font-medium text-neutral-700 dark:text-neutral-300 w-fit select-none group"
+                  className="flex items-center gap-3 cursor-pointer text-sm font-medium text-neutral-700 dark:text-neutral-300 w-full sm:w-fit min-h-[44px] select-none group"
                   onClick={(e) => {
                     e.preventDefault();
                     setHasShadow(!hasShadow);
@@ -1314,7 +1456,7 @@ export default function App() {
                 </label>
                 
                 {hasShadow && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-in fade-in duration-300">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 animate-in fade-in duration-300">
                     {/* Shadow Color */}
                     <div className="flex flex-col gap-3">
                       <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider">Color</label>
@@ -1328,38 +1470,41 @@ export default function App() {
                     {/* Shadow Blur */}
                     <div className="flex flex-col gap-3">
                       <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider flex items-center justify-between">Blur/Glow Size <span>{shadowBlur}px</span></label>
-                      <input type="range" min="0" max="100" value={shadowBlur} onChange={(e) => setShadowBlur(parseInt(e.target.value))} className="w-full h-2 bg-neutral-200 dark:bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
+                      <input type="range" min="0" max="100" value={shadowBlur} onChange={(e) => setShadowBlur(parseInt(e.target.value))} className="w-full h-3 sm:h-2 bg-neutral-200 dark:bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
                     </div>
                     {/* Shadow Offset X */}
                     <div className="flex flex-col gap-3">
                       <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider flex items-center justify-between">Offset X <span>{shadowOffsetX}px</span></label>
-                      <input type="range" min="-100" max="100" value={shadowOffsetX} onChange={(e) => setShadowOffsetX(parseInt(e.target.value))} className="w-full h-2 bg-neutral-200 dark:bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
+                      <input type="range" min="-100" max="100" value={shadowOffsetX} onChange={(e) => setShadowOffsetX(parseInt(e.target.value))} className="w-full h-3 sm:h-2 bg-neutral-200 dark:bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
                     </div>
                     {/* Shadow Offset Y */}
                     <div className="flex flex-col gap-3">
                       <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider flex items-center justify-between">Offset Y <span>{shadowOffsetY}px</span></label>
-                      <input type="range" min="-100" max="100" value={shadowOffsetY} onChange={(e) => setShadowOffsetY(parseInt(e.target.value))} className="w-full h-2 bg-neutral-200 dark:bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
+                      <input type="range" min="-100" max="100" value={shadowOffsetY} onChange={(e) => setShadowOffsetY(parseInt(e.target.value))} className="w-full h-3 sm:h-2 bg-neutral-200 dark:bg-neutral-800 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
                     </div>
                   </div>
                 )}
               </div>
             </CollapsibleSection>
+            </div>
 
             {/* 4. AI Edit */}
             {aiEnabled && (
+              <div className={activeMobilePanel === 'ai' ? 'block' : 'hidden lg:block'}>
               <CollapsibleSection
                 title="Change with AI"
                 icon={Bot}
                 isOpen={isAiSectionOpen}
                 onToggle={() => setIsAiSectionOpen(!isAiSectionOpen)}
                 description="Transform image with text prompts"
+                contentOnlyOnMobile
               >
                 <div className="flex flex-col gap-4">
                   <textarea
                     value={aiPrompt}
                     onChange={(e) => setAiPrompt(e.target.value)}
                     placeholder="Describe the changes you want to make..."
-                    className="w-full bg-neutral-50 dark:bg-[#111] border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-xl px-4 py-3 min-h-[100px] resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    className="w-full bg-neutral-50 dark:bg-[#111] border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-xl px-4 py-3 min-h-[120px] sm:min-h-[100px] resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                   />
                   
                   {!apiKey ? (
@@ -1374,7 +1519,7 @@ export default function App() {
                     <button
                       onClick={handleAiGeneration}
                       disabled={!aiPrompt.trim() || isProcessing}
-                      className={`flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all duration-200 ${
+                    className={`flex items-center justify-center gap-2 px-4 py-3 min-h-[44px] rounded-xl font-semibold transition-all duration-200 ${
                         aiPrompt.trim() && !isProcessing
                           ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md active:scale-95'
                           : 'bg-neutral-200 dark:bg-neutral-800 text-neutral-400 dark:text-neutral-500 cursor-not-allowed'
@@ -1385,10 +1530,11 @@ export default function App() {
                   )}
                 </div>
               </CollapsibleSection>
+              </div>
             )}
 
             {/* Action Bar */}
-            <div className={`bg-white dark:bg-[#0a0a0a] p-4 sm:p-5 rounded-xl shadow-sm border border-neutral-200 dark:border-neutral-800 flex gap-4 transition-colors ${layoutPosition === 'left' || layoutPosition === 'right' ? 'flex-col items-stretch' : 'flex-col md:flex-row items-stretch sm:items-center justify-between'}`}>
+            <div className={`hidden lg:flex bg-white dark:bg-[#0a0a0a] p-5 rounded-xl shadow-sm border border-neutral-200 dark:border-neutral-800 gap-4 transition-colors ${layoutPosition === 'left' || layoutPosition === 'right' ? 'flex-col items-stretch' : 'flex-col md:flex-row items-stretch sm:items-center justify-between'}`}>
               <div className={`w-full ${layoutPosition === 'left' || layoutPosition === 'right' ? '' : 'md:w-auto'}`}>
                 <input type="file" accept="image/*" className="hidden" ref={fileInputRef} onChange={handleImageUpload} />
                 <button onClick={() => fileInputRef.current.click()} className={`flex items-center justify-center gap-2 bg-neutral-900 hover:bg-black dark:bg-white dark:hover:bg-neutral-200 text-white dark:text-black px-6 py-3 sm:py-2.5 rounded-lg font-medium transition-all duration-200 active:scale-95 shadow-sm min-h-[44px] ${layoutPosition === 'left' || layoutPosition === 'right' ? 'w-full' : 'w-full md:w-auto'}`}>
@@ -1402,23 +1548,28 @@ export default function App() {
                     <input type="text" value={outputFilename} onChange={(e) => setOutputFilename(e.target.value)} className="bg-transparent border-none outline-none text-sm font-medium text-neutral-700 dark:text-neutral-300 w-full min-w-[80px] p-0 focus:ring-0" placeholder="filename" />
                     <span className="text-sm text-neutral-400 select-none shrink-0">.png</span>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
                     <a href={processedImage} download={`${outputFilename || 'image_transparent'}.png`} className={`flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 dark:bg-emerald-500 dark:hover:bg-emerald-400 text-white dark:text-black px-5 py-2.5 rounded-lg font-medium transition-all duration-200 active:scale-95 shadow-sm min-h-[44px] ${layoutPosition === 'left' || layoutPosition === 'right' ? 'flex-1' : 'flex-1 sm:flex-none'}`}>
                       <Download className="w-4 h-4" /> Download
                     </a>
                     {(processedImageWebp || maskImage) && (
                       <div className="relative group">
-                        <button className="flex items-center justify-center px-3 py-2.5 bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 rounded-lg transition-colors min-h-[44px]">
+                        <button
+                          onClick={() => setIsExportMenuOpen((open) => !open)}
+                          className="flex items-center justify-center px-3 py-2.5 bg-neutral-200 hover:bg-neutral-300 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 rounded-lg transition-colors min-h-[44px]"
+                          aria-label="More export options"
+                          aria-expanded={isExportMenuOpen}
+                        >
                           <ChevronDown className="w-4 h-4" />
                         </button>
-                        <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-[#111] border border-neutral-200 dark:border-neutral-800 rounded-lg shadow-xl z-50 flex-col py-1 overflow-hidden opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 flex">
+                        <div className={`absolute right-0 bottom-full sm:bottom-auto sm:top-full mb-2 sm:mb-0 sm:mt-2 w-48 bg-white dark:bg-[#111] border border-neutral-200 dark:border-neutral-800 rounded-lg shadow-xl z-50 flex-col py-1 overflow-hidden transition-all duration-200 flex ${isExportMenuOpen ? 'opacity-100 visible pointer-events-auto' : 'opacity-0 invisible pointer-events-none sm:group-hover:opacity-100 sm:group-hover:visible sm:group-hover:pointer-events-auto'}`}>
                           {processedImageWebp && (
-                            <a href={processedImageWebp} download={`${outputFilename || 'image_transparent'}.webp`} className="flex items-center gap-3 px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-sm text-neutral-700 dark:text-neutral-300">
+                            <a href={processedImageWebp} download={`${outputFilename || 'image_transparent'}.webp`} onClick={() => setIsExportMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 min-h-[44px] hover:bg-neutral-100 dark:hover:bg-neutral-800 text-sm text-neutral-700 dark:text-neutral-300">
                               <Download className="w-4 h-4" /> WebP
                             </a>
                           )}
                           {maskImage && (
-                            <button onClick={(e) => { e.preventDefault(); setShowMask(!showMask); }} className="flex items-center gap-3 px-4 py-3 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-sm text-neutral-700 dark:text-neutral-300 w-full text-left">
+                            <button onClick={(e) => { e.preventDefault(); setShowMask(!showMask); setIsExportMenuOpen(false); }} className="flex items-center gap-3 px-4 py-3 min-h-[44px] hover:bg-neutral-100 dark:hover:bg-neutral-800 text-sm text-neutral-700 dark:text-neutral-300 w-full text-left">
                               <Eye className="w-4 h-4" /> {showMask ? 'Hide Mask' : 'Show Mask'}
                             </button>
                           )}
@@ -1431,20 +1582,127 @@ export default function App() {
             </div>
             </div>
 
+            {processedImage && (
+              <div
+                className={`fixed inset-x-3 bottom-[calc(4.75rem+env(safe-area-inset-bottom))] z-[220] max-h-[72dvh] overflow-y-auto custom-scrollbar rounded-2xl border border-neutral-200 dark:border-neutral-800 bg-neutral-50 dark:bg-[#0a0a0a] p-3 shadow-2xl transition-all duration-300 ease-out lg:hidden ${isMobileExportOpen ? 'block translate-y-0 opacity-100' : 'hidden translate-y-[calc(100%+2rem)] opacity-0 pointer-events-none'}`}
+                style={isMobileExportOpen ? { transform: `translateY(${mobileSettingsDragY}px)` } : undefined}
+                onPointerMove={handleMobileSettingsDragMove}
+                onPointerUp={handleMobileSettingsDragEnd}
+                onPointerCancel={handleMobileSettingsDragEnd}
+                onMouseMove={(e) => {
+                  if (e.buttons === 1) handleMobileSettingsDragMove(e);
+                }}
+                onMouseUp={handleMobileSettingsDragEnd}
+                onTouchMove={handleMobileSettingsDragMove}
+                onTouchEnd={handleMobileSettingsDragEnd}
+              >
+                <div
+                  className="sticky top-0 z-10 -mx-3 -mt-3 mb-3 rounded-t-2xl border-b border-neutral-200 dark:border-neutral-800 bg-white/95 dark:bg-[#111]/95 px-4 pb-3 pt-2 backdrop-blur-xl touch-none"
+                  onPointerDown={handleMobileSettingsDragStart}
+                  onMouseDown={handleMobileSettingsDragStart}
+                  onTouchStart={handleMobileSettingsDragStart}
+                >
+                  <div className="mx-auto mb-2 h-1.5 w-12 rounded-full bg-neutral-300 dark:bg-neutral-700" />
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-bold text-neutral-900 dark:text-white">Save Export</p>
+                      <p className="text-xs text-neutral-500 dark:text-neutral-400">Drag down to close</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={closeMobileSettings}
+                      className="flex h-11 w-11 items-center justify-center rounded-full bg-neutral-100 text-neutral-600 transition-colors active:scale-95 dark:bg-neutral-800 dark:text-neutral-300"
+                      aria-label="Close export menu"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex min-h-[44px] items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-2.5 transition-colors focus-within:border-neutral-400 dark:border-neutral-700 dark:bg-[#111] dark:focus-within:border-neutral-500">
+                    <Pencil className="h-4 w-4 shrink-0 text-neutral-400" />
+                    <input
+                      type="text"
+                      value={outputFilename}
+                      onChange={(e) => setOutputFilename(e.target.value)}
+                      className="w-full min-w-0 bg-transparent p-0 text-sm font-medium text-neutral-700 outline-none focus:ring-0 dark:text-neutral-300"
+                      placeholder="filename"
+                    />
+                    <span className="shrink-0 text-sm text-neutral-400 select-none">.png</span>
+                  </div>
+
+                  <a
+                    href={processedImage}
+                    download={`${outputFilename || 'image_transparent'}.png`}
+                    onClick={closeMobileSettings}
+                    className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white shadow-sm transition-colors active:scale-[0.98] dark:bg-emerald-500 dark:text-black"
+                  >
+                    <Download className="h-4 w-4" />
+                    Download PNG
+                  </a>
+
+                  <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-[#111]">
+                    {processedImageWebp && (
+                      <a
+                        href={processedImageWebp}
+                        download={`${outputFilename || 'image_transparent'}.webp`}
+                        onClick={closeMobileSettings}
+                        className="flex min-h-[48px] items-center gap-3 px-4 py-3 text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                      >
+                        <Download className="h-4 w-4" />
+                        WebP
+                      </a>
+                    )}
+                    {maskImage && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowMask(!showMask);
+                          closeMobileSettings();
+                        }}
+                        className="flex min-h-[48px] w-full items-center gap-3 px-4 py-3 text-left text-sm font-medium text-neutral-700 transition-colors hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-800"
+                      >
+                        <Eye className="h-4 w-4" />
+                        {showMask ? 'Hide Mask' : 'Show Mask'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Image Viewer Area */}
             <div className="flex-1 space-y-6 min-w-0">
 
           {/* View Modes Toggle */}
           {originalImage && (
-            <div className="flex justify-center pt-4">
-              <div className="flex bg-neutral-100 dark:bg-[#111] border border-neutral-200 dark:border-neutral-800 rounded-lg p-1">
-                <button onClick={() => setCompareMode(false)} className={`flex items-center gap-2 px-4 py-2 text-sm rounded-md transition-all ${!compareMode ? 'bg-white dark:bg-neutral-800 shadow-sm text-neutral-900 dark:text-white font-medium' : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'}`}>
+            <div className="flex justify-center pt-2 sm:pt-4">
+              <div className="flex w-full sm:w-auto bg-neutral-100 dark:bg-[#111] border border-neutral-200 dark:border-neutral-800 rounded-lg p-1">
+                <button onClick={() => setCompareMode(false)} className={`flex-1 sm:flex-none justify-center flex items-center gap-2 px-4 py-2.5 sm:py-2 min-h-[44px] sm:min-h-0 text-sm rounded-md transition-all ${!compareMode ? 'bg-white dark:bg-neutral-800 shadow-sm text-neutral-900 dark:text-white font-medium' : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'}`}>
                   <Grid2X2 className="w-4 h-4" /> Grid View
                 </button>
-                <button onClick={() => setCompareMode(true)} className={`flex items-center gap-2 px-4 py-2 text-sm rounded-md transition-all ${compareMode ? 'bg-white dark:bg-neutral-800 shadow-sm text-neutral-900 dark:text-white font-medium' : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'}`}>
+                <button onClick={() => setCompareMode(true)} className={`flex-1 sm:flex-none justify-center flex items-center gap-2 px-4 py-2.5 sm:py-2 min-h-[44px] sm:min-h-0 text-sm rounded-md transition-all ${compareMode ? 'bg-white dark:bg-neutral-800 shadow-sm text-neutral-900 dark:text-white font-medium' : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'}`}>
                   <SplitSquareHorizontal className="w-4 h-4" /> Compare View
                 </button>
               </div>
+            </div>
+          )}
+
+          {!originalImage && (
+            <div className="transition-all duration-500 ease-out">
+              <button
+                onClick={() => fileInputRef.current.click()}
+                className="w-full min-h-[280px] sm:min-h-[360px] rounded-2xl border border-dashed border-neutral-300 dark:border-neutral-700 bg-white dark:bg-[#0a0a0a] shadow-sm flex flex-col items-center justify-center gap-5 p-6 text-center hover:border-neutral-500 dark:hover:border-neutral-500 hover:bg-neutral-100/60 dark:hover:bg-[#111] transition-all active:scale-[0.99]"
+              >
+                <span className="w-16 h-16 rounded-2xl bg-neutral-900 dark:bg-white text-white dark:text-black flex items-center justify-center shadow-lg">
+                  <Upload className="w-7 h-7" />
+                </span>
+                <span className="flex flex-col gap-2">
+                  <span className="text-xl sm:text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">Start with an image</span>
+                  <span className="text-sm text-neutral-500 dark:text-neutral-400">Select Image</span>
+                </span>
+              </button>
             </div>
           )}
 
@@ -1454,17 +1712,17 @@ export default function App() {
               
               {!compareMode ? (
                 // GRID VIEW
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                   {/* Original Image Card */}
                   <div className="bg-white dark:bg-[#0a0a0a] rounded-xl shadow-sm border border-neutral-200 dark:border-neutral-800 overflow-hidden flex flex-col">
                     <div className="bg-neutral-50 dark:bg-[#111] p-3 border-b border-neutral-200 dark:border-neutral-800 text-sm font-medium text-neutral-600 dark:text-neutral-400 text-center relative">
                       Original Image
                       {isPickingColor && <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400 px-2 py-1 rounded-md animate-pulse hidden sm:inline-block">Pick a color</span>}
                     </div>
-                    <div className={`p-4 flex-1 flex items-center justify-center bg-white dark:bg-black relative group min-h-[250px] ${isPickingColor ? 'cursor-crosshair' : 'cursor-pointer'}`} onClick={(e) => isPickingColor ? handleOriginalImageClick(e) : setZoomedImage({ src: originalImage, isTransparent: false })}>
-                      <img ref={originalImageRef} src={originalImage} alt="Original" className="max-w-full h-auto max-h-[400px] lg:max-h-[500px] object-contain rounded select-none" />
+                    <div className={`p-3 sm:p-4 flex-1 flex items-center justify-center bg-white dark:bg-black relative group min-h-[220px] sm:min-h-[250px] ${isPickingColor ? 'cursor-crosshair' : 'cursor-pointer'}`} onClick={(e) => isPickingColor ? handleOriginalImageClick(e) : setZoomedImage({ src: originalImage, isTransparent: false })}>
+                      <img ref={originalImageRef} src={originalImage} alt="Original" className="max-w-full h-auto max-h-[52dvh] sm:max-h-[400px] lg:max-h-[500px] object-contain rounded select-none" />
                       {!isPickingColor && (
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded m-4 backdrop-blur-[2px]">
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 hidden sm:flex items-center justify-center transition-opacity rounded m-4 backdrop-blur-[2px]">
                           <div className="bg-white/20 text-white rounded-full px-5 py-3 flex items-center gap-2 backdrop-blur-md shadow-lg"><Maximize2 className="w-5 h-5" /> <span className="font-medium text-sm">Tap to zoom</span></div>
                         </div>
                       )}
@@ -1479,14 +1737,14 @@ export default function App() {
                       {isProcessing && <span className="flex h-3 w-3 absolute right-4"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-neutral-400 dark:bg-neutral-600 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-neutral-600 dark:bg-white"></span></span>}
                     </div>
                     {outputDimensions && <div className="sm:hidden bg-neutral-50 dark:bg-[#111] border-b border-neutral-200 dark:border-neutral-800 text-xs text-center pb-2 text-neutral-500 font-mono">Output: {outputDimensions.width} × {outputDimensions.height} px</div>}
-                    <div className="p-4 flex-1 flex items-center justify-center relative group cursor-pointer min-h-[250px]" style={checkerboardStyles} onClick={() => processedImage && setZoomedImage({ src: processedImage, isTransparent: true })}>
+                    <div className="p-3 sm:p-4 flex-1 flex items-center justify-center relative group cursor-pointer min-h-[220px] sm:min-h-[250px]" style={checkerboardStyles} onClick={() => processedImage && setZoomedImage({ src: processedImage, isTransparent: true })}>
                       {processedImage && (
                         <>
-                          <img src={processedImage} alt="Processed" className="max-w-full h-auto max-h-[400px] lg:max-h-[500px] object-contain rounded" />
+                          <img src={processedImage} alt="Processed" className="max-w-full h-auto max-h-[52dvh] sm:max-h-[400px] lg:max-h-[500px] object-contain rounded" />
                           {showMask && maskImage && (
-                            <img src={maskImage} alt="Mask" className="absolute inset-0 max-w-full h-auto max-h-[400px] lg:max-h-[500px] object-contain pointer-events-none rounded" />
+                            <img src={maskImage} alt="Mask" className="absolute inset-0 max-w-full h-auto max-h-[52dvh] sm:max-h-[400px] lg:max-h-[500px] object-contain pointer-events-none rounded" />
                           )}
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded m-4 backdrop-blur-[2px]">
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 hidden sm:flex items-center justify-center transition-opacity rounded m-4 backdrop-blur-[2px]">
                             <div className="bg-white/20 text-white rounded-full px-5 py-3 flex items-center gap-2 backdrop-blur-md shadow-lg"><Maximize2 className="w-5 h-5" /> <span className="font-medium text-sm">Tap to zoom</span></div>
                           </div>
                         </>
@@ -1497,24 +1755,24 @@ export default function App() {
               ) : (
                 // COMPARE VIEW
                 <div className="bg-white dark:bg-[#0a0a0a] rounded-xl shadow-sm border border-neutral-200 dark:border-neutral-800 overflow-hidden flex flex-col">
-                  <div className="bg-neutral-50 dark:bg-[#111] p-3 border-b border-neutral-200 dark:border-neutral-800 text-sm font-medium text-neutral-600 dark:text-neutral-400 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div className="flex flex-col sm:flex-row items-center gap-2">
+                  <div className="bg-neutral-50 dark:bg-[#111] p-3 border-b border-neutral-200 dark:border-neutral-800 text-sm font-medium text-neutral-600 dark:text-neutral-400 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+                    <div className="flex flex-col sm:flex-row items-center sm:items-center gap-2 text-center sm:text-left">
                       <span>Interactive Comparison</span>
                       {(debouncedParams.autoCrop || debouncedParams.hasShadow || debouncedParams.scale !== 100) && (
                         <span className="text-xs text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 px-2 py-0.5 rounded-md">Note: Crop/Scale/Shadow may cause misalignment</span>
                       )}
                     </div>
                     {/* View Type Switcher */}
-                    <div className="flex bg-neutral-200/50 dark:bg-neutral-800/50 rounded-lg p-1">
+                    <div className="flex w-full sm:w-auto bg-neutral-200/50 dark:bg-neutral-800/50 rounded-lg p-1">
                       <button 
                         onClick={() => setCompareType('slider')} 
-                        className={`px-4 py-1.5 text-xs rounded-md transition-all ${compareType === 'slider' ? 'bg-white dark:bg-neutral-700 shadow-sm text-neutral-900 dark:text-white font-medium' : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'}`}
+                        className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-1.5 min-h-[44px] sm:min-h-0 text-xs rounded-md transition-all ${compareType === 'slider' ? 'bg-white dark:bg-neutral-700 shadow-sm text-neutral-900 dark:text-white font-medium' : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'}`}
                       >
                         Slider
                       </button>
                       <button 
                         onClick={() => setCompareType('toggle')} 
-                        className={`px-4 py-1.5 text-xs rounded-md transition-all ${compareType === 'toggle' ? 'bg-white dark:bg-neutral-700 shadow-sm text-neutral-900 dark:text-white font-medium' : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'}`}
+                        className={`flex-1 sm:flex-none px-4 py-2.5 sm:py-1.5 min-h-[44px] sm:min-h-0 text-xs rounded-md transition-all ${compareType === 'toggle' ? 'bg-white dark:bg-neutral-700 shadow-sm text-neutral-900 dark:text-white font-medium' : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'}`}
                       >
                         Toggle
                       </button>
@@ -1523,29 +1781,36 @@ export default function App() {
                   
                   {compareType === 'slider' ? (
                     <div 
-                      className="relative w-full h-[50vh] sm:h-[60vh] flex items-center justify-center cursor-ew-resize overflow-hidden touch-none" style={checkerboardStyles}
-                      onMouseMove={(e) => { const rect = e.currentTarget.getBoundingClientRect(); setCompareSliderPos(Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100))); }}
-                      onTouchMove={(e) => { const rect = e.currentTarget.getBoundingClientRect(); setCompareSliderPos(Math.max(0, Math.min(100, ((e.touches[0].clientX - rect.left) / rect.width) * 100))); }}
+                      className="relative w-full h-[58dvh] min-h-[320px] sm:h-[60dvh] flex items-center justify-center cursor-ew-resize overflow-hidden touch-none" style={checkerboardStyles}
+                      onPointerDown={(e) => {
+                        e.currentTarget.setPointerCapture(e.pointerId);
+                        updateCompareSliderFromClientX(e.clientX, e.currentTarget);
+                      }}
+                      onPointerMove={(e) => {
+                        if (e.buttons === 1 || e.pointerType === 'touch') {
+                          updateCompareSliderFromClientX(e.clientX, e.currentTarget);
+                        }
+                      }}
                     >
                       {/* Background: Original Image */}
-                      <img src={originalImage} className="absolute max-w-full max-h-full w-full h-full object-contain pointer-events-none" />
+                      <img src={originalImage} alt="Original comparison layer" className="absolute max-w-full max-h-full w-full h-full object-contain pointer-events-none" />
                       {/* Foreground: Processed Image (Clipped) */}
                       {processedImage && (
                         <>
-                          <img src={processedImage} className="absolute max-w-full max-h-full w-full h-full object-contain pointer-events-none" style={{ clipPath: `polygon(0 0, ${compareSliderPos}% 0, ${compareSliderPos}% 100%, 0 100%)` }} />
+                          <img src={processedImage} alt="Processed comparison layer" className="absolute max-w-full max-h-full w-full h-full object-contain pointer-events-none" style={{ clipPath: `polygon(0 0, ${compareSliderPos}% 0, ${compareSliderPos}% 100%, 0 100%)` }} />
                           {showMask && maskImage && (
-                            <img src={maskImage} className="absolute max-w-full max-h-full w-full h-full object-contain pointer-events-none" style={{ clipPath: `polygon(0 0, ${compareSliderPos}% 0, ${compareSliderPos}% 100%, 0 100%)` }} />
+                            <img src={maskImage} alt="Mask comparison layer" className="absolute max-w-full max-h-full w-full h-full object-contain pointer-events-none" style={{ clipPath: `polygon(0 0, ${compareSliderPos}% 0, ${compareSliderPos}% 100%, 0 100%)` }} />
                           )}
                         </>
                       )}
                       {/* Slider Line & Thumb */}
                       <div className="absolute top-0 bottom-0 w-0.5 bg-white drop-shadow-md pointer-events-none" style={{ left: `${compareSliderPos}%` }}>
-                        <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-8 h-8 bg-white text-neutral-800 rounded-full shadow-lg flex items-center justify-center"><SplitSquareHorizontal className="w-4 h-4" /></div>
+                        <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-11 h-11 sm:w-9 sm:h-9 bg-white text-neutral-800 rounded-full shadow-lg flex items-center justify-center"><SplitSquareHorizontal className="w-4 h-4" /></div>
                       </div>
                     </div>
                   ) : (
                     <div 
-                      className="relative w-full h-[50vh] sm:h-[60vh] flex items-center justify-center cursor-pointer overflow-hidden select-none" 
+                      className="relative w-full h-[58dvh] min-h-[320px] sm:h-[60dvh] flex items-center justify-center cursor-pointer overflow-hidden select-none"
                       style={checkerboardStyles}
                       onPointerDown={() => setShowOriginal(true)}
                       onPointerUp={() => setShowOriginal(false)}
@@ -1553,15 +1818,17 @@ export default function App() {
                     >
                       <img 
                         src={showOriginal ? originalImage : processedImage} 
+                        alt={showOriginal ? 'Original image' : 'Processed image'}
                         className="absolute max-w-full max-h-full w-full h-full object-contain pointer-events-none" 
                       />
                       {!showOriginal && showMask && maskImage && (
                         <img 
                           src={maskImage}
+                          alt="Mask overlay"
                           className="absolute max-w-full max-h-full w-full h-full object-contain pointer-events-none"
                         />
                       )}
-                      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/70 text-white px-5 py-2.5 rounded-full text-sm backdrop-blur-md font-medium shadow-lg pointer-events-none transition-all">
+                      <div className="absolute bottom-[calc(1rem+env(safe-area-inset-bottom))] sm:bottom-6 left-1/2 -translate-x-1/2 bg-black/70 text-white px-5 py-2.5 rounded-full text-sm backdrop-blur-md font-medium shadow-lg pointer-events-none transition-all text-center max-w-[calc(100%-2rem)]">
                         {showOriginal ? 'Original' : 'Result (Hold to view Original)'}
                       </div>
                     </div>
@@ -1575,9 +1842,47 @@ export default function App() {
             </div>
           </div>
         </main>
+
+        <nav className="fixed inset-x-0 bottom-0 z-[180] border-t border-neutral-200 bg-white/95 px-3 pt-2 app-safe-bottom shadow-[0_-10px_30px_rgba(0,0,0,0.08)] backdrop-blur-xl dark:border-neutral-800 dark:bg-[#0a0a0a]/95 lg:hidden">
+          <div className="mx-auto grid max-w-md grid-cols-4 gap-1.5">
+            <button
+              type="button"
+              onClick={() => openMobilePanel('basic')}
+              className={`flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-semibold transition-colors active:scale-95 ${isMobileSettingsOpen && activeMobilePanel === 'basic' ? 'bg-neutral-900 text-white dark:bg-white dark:text-black' : 'text-neutral-600 dark:text-neutral-300'}`}
+            >
+              <Settings className="h-5 w-5" />
+              Basic
+            </button>
+            <button
+              type="button"
+              onClick={() => openMobilePanel('advanced')}
+              className={`flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-semibold transition-colors active:scale-95 ${isMobileSettingsOpen && activeMobilePanel === 'advanced' ? 'bg-neutral-900 text-white dark:bg-white dark:text-black' : 'text-neutral-600 dark:text-neutral-300'}`}
+            >
+              <Wrench className="h-5 w-5" />
+              Advanced
+            </button>
+            <button
+              type="button"
+              onClick={() => openMobilePanel('effects')}
+              className={`flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-semibold transition-colors active:scale-95 ${isMobileSettingsOpen && activeMobilePanel === 'effects' ? 'bg-neutral-900 text-white dark:bg-white dark:text-black' : 'text-neutral-600 dark:text-neutral-300'}`}
+            >
+              <Layers className="h-5 w-5" />
+              Effects
+            </button>
+            <button
+              type="button"
+              onClick={openMobileExport}
+              disabled={!processedImage}
+              className={`flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-semibold transition-colors active:scale-95 ${isMobileExportOpen ? 'bg-emerald-600 text-white dark:bg-emerald-400 dark:text-black' : processedImage ? 'text-emerald-700 dark:text-emerald-300' : 'text-neutral-400 opacity-60 dark:text-neutral-600'}`}
+            >
+              <Download className="h-5 w-5" />
+              Save
+            </button>
+          </div>
+        </nav>
         
         {/* Footer */}
-        <footer className="w-full text-center sm:text-right px-4 sm:px-6 py-4 border-t border-neutral-200 dark:border-neutral-800/50 mt-auto opacity-70 hover:opacity-100 transition-opacity">
+        <footer className="w-full text-center sm:text-right px-4 sm:px-6 py-4 app-safe-bottom border-t border-neutral-200 dark:border-neutral-800/50 mt-auto opacity-70 hover:opacity-100 transition-opacity">
           <p className="text-sm font-medium text-neutral-500 dark:text-neutral-400">
             Made with <span className="text-red-500">❤️</span> by Mailo
           </p>
@@ -1586,32 +1891,32 @@ export default function App() {
 
       {/* Global Settings Modal */}
       {isSettingsModalOpen && (
-        <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setIsSettingsModalOpen(false)}>
-          <div className="bg-white dark:bg-[#0a0a0a] rounded-2xl shadow-2xl w-full max-w-md border border-neutral-200 dark:border-neutral-800 flex flex-col animate-in fade-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
-            <div className="p-5 border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between bg-neutral-50 dark:bg-[#111] rounded-t-2xl">
+        <div className="fixed inset-0 z-[300] bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setIsSettingsModalOpen(false)}>
+          <div className="bg-white dark:bg-[#0a0a0a] rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-md max-h-[calc(100dvh-env(safe-area-inset-top))] sm:max-h-[90dvh] border border-neutral-200 dark:border-neutral-800 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+            <div className="p-4 sm:p-5 app-safe-top border-b border-neutral-100 dark:border-neutral-800 flex items-center justify-between bg-neutral-50 dark:bg-[#111] rounded-t-2xl shrink-0">
               <h3 className="text-lg font-bold text-neutral-800 dark:text-white flex items-center gap-2">
                 <Settings className="w-5 h-5 text-neutral-500" />
                 Global Settings
               </h3>
-              <button onClick={() => setIsSettingsModalOpen(false)} className="p-2 -mr-2 rounded-lg hover:bg-neutral-200 dark:hover:bg-[#222] text-neutral-500 transition-colors">
+              <button onClick={() => setIsSettingsModalOpen(false)} className="w-11 h-11 -mr-2 flex items-center justify-center rounded-lg hover:bg-neutral-200 dark:hover:bg-[#222] text-neutral-500 transition-colors active:scale-95" aria-label="Close settings">
                 <X className="w-5 h-5" />
               </button>
             </div>
             
-            <div className="p-6 flex flex-col gap-6">
+            <div className="p-4 sm:p-6 app-safe-bottom flex flex-col gap-6 overflow-y-auto custom-scrollbar">
               {/* Theme Setting */}
               <div className="space-y-3">
                 <label className="text-sm font-semibold text-neutral-700 dark:text-neutral-300 block">Theme</label>
                 <div className="flex bg-neutral-100 dark:bg-[#111] p-1 rounded-xl border border-neutral-200 dark:border-neutral-800">
                   <button
                     onClick={() => setIsDarkMode(false)}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${!isDarkMode ? 'bg-white dark:bg-neutral-800 text-black dark:text-white shadow-sm' : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'}`}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 min-h-[44px] rounded-lg text-sm font-medium transition-all ${!isDarkMode ? 'bg-white dark:bg-neutral-800 text-black dark:text-white shadow-sm' : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'}`}
                   >
                     <Sun className="w-4 h-4" /> Light
                   </button>
                   <button
                     onClick={() => setIsDarkMode(true)}
-                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all ${isDarkMode ? 'bg-white dark:bg-neutral-800 text-black dark:text-white shadow-sm' : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'}`}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 min-h-[44px] rounded-lg text-sm font-medium transition-all ${isDarkMode ? 'bg-white dark:bg-neutral-800 text-black dark:text-white shadow-sm' : 'text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300'}`}
                   >
                     <Moon className="w-4 h-4" /> Dark
                   </button>
@@ -1646,7 +1951,7 @@ export default function App() {
 
               {/* AI Integration Settings */}
               <div className="space-y-5">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
                   <h4 className="text-sm font-semibold text-neutral-800 dark:text-neutral-200 flex items-center gap-2">
                     <Bot className="w-4 h-4 text-blue-500" />
                     AI Integration
@@ -1656,7 +1961,7 @@ export default function App() {
                       <div className="relative">
                         <button 
                           onClick={() => setIsTestPopoverOpen(!isTestPopoverOpen)}
-                          className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors ${isTestPopoverOpen ? 'bg-neutral-100 dark:bg-[#222] border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white' : 'bg-transparent border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-[#111] text-neutral-700 dark:text-neutral-300'}`}
+                          className={`flex items-center gap-2 px-3 py-2.5 min-h-[44px] rounded-lg text-sm font-medium border transition-colors ${isTestPopoverOpen ? 'bg-neutral-100 dark:bg-[#222] border-neutral-300 dark:border-neutral-700 text-neutral-900 dark:text-white' : 'bg-transparent border-neutral-200 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-[#111] text-neutral-700 dark:text-neutral-300'}`}
                         >
                           <FlaskConical className="w-4 h-4" />
                           Test
@@ -1664,21 +1969,21 @@ export default function App() {
                         </button>
                         
                         {isTestPopoverOpen && (
-                          <div className="absolute right-0 top-full mt-2 w-[340px] bg-white dark:bg-[#0f0f0f] border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-2xl z-[400] animate-in fade-in zoom-in-95 duration-200">
+                          <div className="fixed inset-x-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-[340px] bg-white dark:bg-[#0f0f0f] border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-2xl z-[400] animate-in fade-in zoom-in-95 duration-200">
                             <div className="p-4 space-y-4">
                               <h5 className="font-semibold text-neutral-800 dark:text-neutral-200 text-sm">Select model to test</h5>
                               
                               <div className="relative">
                                 <button 
                                   onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
-                                  className="w-full bg-white dark:bg-black border border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-200 rounded-lg px-3 py-2.5 text-sm font-semibold flex items-center justify-between hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors"
+                                  className="w-full bg-white dark:bg-black border border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-200 rounded-lg px-3 py-2.5 min-h-[44px] text-sm font-semibold flex items-center justify-between hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors"
                                 >
                                   <span className="truncate pr-2">{aiModel ? models.find(m => m.id === aiModel)?.name || aiModel : 'Select a model to test with'}</span>
                                   <ChevronDown className="w-4 h-4 text-neutral-500 shrink-0" />
                                 </button>
                                 
                                 {isModelDropdownOpen && (
-                                  <div className="absolute left-0 right-0 bottom-full mb-1 bg-white dark:bg-[#0a0a0a] border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-xl z-[500] flex flex-col overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-200">
+                                  <div className="absolute left-0 right-0 top-full mt-1 bg-white dark:bg-[#0a0a0a] border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-xl z-[500] flex flex-col overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                                     <div className="p-2 border-b border-neutral-100 dark:border-neutral-800 flex items-center gap-2">
                                       <div className="relative flex-1">
                                         <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-500" />
@@ -1695,7 +2000,7 @@ export default function App() {
                                       </span>
                                     </div>
                                     
-                                    <div className="overflow-y-auto custom-scrollbar max-h-[240px] flex-1 px-1 pb-1 pt-0">
+                                    <div className="overflow-y-auto custom-scrollbar max-h-[min(240px,42dvh)] flex-1 px-1 pb-1 pt-0">
                                       {isLoadingModels ? (
                                         <div className="flex flex-col items-center justify-center py-8 text-neutral-400">
                                           <div className="w-6 h-6 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin mb-2" />
@@ -1720,7 +2025,7 @@ export default function App() {
                                                 setIsModelDropdownOpen(false);
                                                 setModelSearchQuery('');
                                               }}
-                                              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-sm transition-colors ${aiModel === model.id ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-[#1a1a1a]'}`}
+                                              className={`w-full flex items-center gap-2.5 px-3 py-2.5 min-h-[44px] rounded-lg text-left text-sm transition-colors ${aiModel === model.id ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400' : 'text-neutral-700 dark:text-neutral-300 hover:bg-neutral-100 dark:hover:bg-[#1a1a1a]'}`}
                                             >
                                               <Sparkles className={`w-3.5 h-3.5 ${aiModel === model.id ? 'text-blue-500' : 'text-blue-400 dark:text-blue-500'} shrink-0`} />
                                               <span className="flex-1 truncate">{model.name}</span>
@@ -1740,7 +2045,7 @@ export default function App() {
                                   setIsTestPopoverOpen(false);
                                 }}
                                 disabled={isTestingKey || !aiModel}
-                                className={`w-full py-2.5 rounded-lg text-sm font-semibold transition-all ${!aiModel ? 'bg-neutral-200 dark:bg-neutral-800 text-neutral-400 cursor-not-allowed' : 'bg-[#414389] hover:bg-[#4b4e9f] text-white shadow-md hover:shadow-lg active:scale-[0.98]'}`}
+                                className={`w-full py-2.5 min-h-[44px] rounded-lg text-sm font-semibold transition-all ${!aiModel ? 'bg-neutral-200 dark:bg-neutral-800 text-neutral-400 cursor-not-allowed' : 'bg-[#414389] hover:bg-[#4b4e9f] text-white shadow-md hover:shadow-lg active:scale-[0.98]'}`}
                               >
                                 {isTestingKey ? 'Testing...' : 'Run Test'}
                               </button>
@@ -1749,7 +2054,7 @@ export default function App() {
                         )}
                       </div>
                     )}
-                    <label className="flex items-center cursor-pointer group">
+                    <label className="flex items-center cursor-pointer group min-h-[44px]">
                       <div className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 ease-in-out ${aiEnabled ? 'bg-blue-500' : 'bg-neutral-300 dark:bg-neutral-600'}`}>
                         <span aria-hidden="true" className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${aiEnabled ? 'translate-x-5' : 'translate-x-1'}`} />
                       </div>
@@ -1769,7 +2074,7 @@ export default function App() {
                             setAiProvider(e.target.value);
                             setAiModel('');
                           }}
-                          className="w-full bg-neutral-50 dark:bg-[#111] border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-xl px-4 py-3 appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                          className="w-full bg-neutral-50 dark:bg-[#111] border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-xl px-4 py-3 min-h-[44px] appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
                         >
                           <option value="openai">OpenAI (DALL-E)</option>
                           <option value="anthropic">Anthropic (Claude)</option>
@@ -1793,11 +2098,11 @@ export default function App() {
                           value={apiKey}
                           onChange={(e) => setApiKey(e.target.value)}
                           placeholder={`Enter your ${aiProvider === 'local' ? 'API URL/Key' : aiProvider.charAt(0).toUpperCase() + aiProvider.slice(1)} key`}
-                          className="w-full bg-neutral-50 dark:bg-[#111] border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-xl pl-11 pr-12 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                          className="w-full bg-neutral-50 dark:bg-[#111] border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-xl pl-11 pr-12 py-3 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
                         />
                         <button
                           onClick={() => setShowApiKey(!showApiKey)}
-                          className="absolute inset-y-0 right-0 pr-4 flex items-center text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors"
+                          className="absolute inset-y-0 right-0 min-w-[44px] flex items-center justify-center text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors"
                         >
                           {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                         </button>
@@ -1821,23 +2126,23 @@ export default function App() {
 
       {/* Fullscreen Zoom Modal */}
       {zoomedImage.src && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-2 sm:p-8 animate-in fade-in duration-200" onClick={() => setZoomedImage({ src: null, isTransparent: false })}>
-          <button className="absolute top-4 right-4 sm:top-6 sm:right-6 text-white/70 hover:text-white bg-black/50 hover:bg-black/80 rounded-full p-3 sm:p-2 transition-all hover:scale-110 active:scale-95 z-10" onClick={(e) => { e.stopPropagation(); setZoomedImage({ src: null, isTransparent: false }); }} title="Close fullscreen (Esc)">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-3 sm:p-8 animate-in fade-in duration-200" onClick={() => setZoomedImage({ src: null, isTransparent: false })}>
+          <button className="absolute top-[calc(1rem+env(safe-area-inset-top))] right-4 sm:top-6 sm:right-6 text-white/70 hover:text-white bg-black/50 hover:bg-black/80 rounded-full w-11 h-11 flex items-center justify-center transition-all hover:scale-110 active:scale-95 z-10" onClick={(e) => { e.stopPropagation(); setZoomedImage({ src: null, isTransparent: false }); }} title="Close fullscreen (Esc)" aria-label="Close fullscreen">
             <X className="w-6 h-6" />
           </button>
           <div className="rounded-lg overflow-hidden shadow-2xl relative max-w-full max-h-full flex items-center justify-center animate-in zoom-in-95 duration-200" style={zoomedImage.isTransparent ? checkerboardStyles : { backgroundColor: isDarkMode ? '#000' : '#fff' }} onClick={(e) => e.stopPropagation()}>
-            <img src={zoomedImage.src} alt="Zoomed fullscreen view" className="max-w-[95vw] max-h-[90vh] sm:max-w-full object-contain" />
+            <img src={zoomedImage.src} alt="Zoomed fullscreen view" className="max-w-[96vw] max-h-[86dvh] sm:max-h-[90vh] object-contain" />
           </div>
         </div>
       )}
 
       {/* Custom Toast Notification */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[500] flex flex-col items-center gap-2 pointer-events-none w-max max-w-[90vw]">
+      <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] sm:bottom-6 left-1/2 -translate-x-1/2 z-[500] flex flex-col items-center gap-2 pointer-events-none w-[calc(100vw-2rem)] sm:w-max sm:max-w-[90vw]">
         {toasts.map((toast) => (
           <div key={toast.id} className="bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 pl-4 pr-2 py-2.5 rounded-2xl shadow-2xl font-medium text-sm flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300 pointer-events-auto border border-white/10 dark:border-black/10 transition-all w-full">
             <Sparkles className="w-5 h-5 text-blue-400 dark:text-blue-600 shrink-0" />
             <span className="break-words flex-1 pr-2">{toast.message}</span>
-            <button onClick={() => removeToast(toast.id)} className="text-neutral-400 hover:text-white dark:text-neutral-500 dark:hover:text-black transition-colors rounded-full p-1.5 hover:bg-white/10 dark:hover:bg-black/10 shrink-0">
+            <button onClick={() => removeToast(toast.id)} className="text-neutral-400 hover:text-white dark:text-neutral-500 dark:hover:text-black transition-colors rounded-full w-9 h-9 flex items-center justify-center hover:bg-white/10 dark:hover:bg-black/10 shrink-0" aria-label="Dismiss notification">
               <X className="w-4 h-4" />
             </button>
           </div>
