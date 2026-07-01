@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { Check, ChevronDown, Search } from 'lucide-react';
+import { cx, uiTemplates } from '../uiTemplates';
 
 const normalizeOptionGroups = (options) => {
   if (!Array.isArray(options) || options.length === 0) return [];
@@ -160,27 +161,27 @@ export function TemplateSelect({
   let optionRenderIndex = -1;
 
   return (
-    <div ref={rootRef} className={`relative ${className}`}>
+    <div ref={rootRef} className={cx('relative', className)}>
       <button
         type="button"
         onClick={() => setIsOpen((current) => !current)}
         onKeyDown={handleTriggerKeyDown}
-        className={`w-full bg-neutral-50 dark:bg-[#111] border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-xl px-4 py-3 pr-11 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium flex items-center justify-between gap-3 text-left hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors ${buttonClassName}`}
+        className={cx(uiTemplates.inputs.selectButton, buttonClassName)}
         aria-label={ariaLabel}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-controls={listboxId}
         aria-activedescendant={isOpen && visibleOptions.length > 0 ? `${listboxId}-${activeIndex}` : undefined}
       >
-        <span className={`min-w-0 flex-1 truncate ${selectedOption ? '' : 'text-neutral-400'}`}>
+        <span className={cx('min-w-0 flex-1 truncate', selectedOption ? '' : 'text-neutral-400')}>
           {selectedOption?.label || placeholder}
         </span>
-        <ChevronDown className={`w-4 h-4 text-neutral-400 shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        <ChevronDown className={cx('w-4 h-4 text-neutral-400 shrink-0 transition-transform', isOpen ? 'rotate-180' : '')} />
       </button>
 
       {isOpen && (
         <div
-          className={`absolute left-0 right-0 top-full mt-2 z-[520] overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-2xl animate-in fade-in slide-in-from-top-2 duration-150 dark:border-neutral-800 dark:bg-[#0a0a0a] ${menuClassName}`}
+          className={cx(uiTemplates.inputs.selectMenu, menuClassName)}
         >
           {searchable && (
             <div className="border-b border-neutral-100 p-2 dark:border-neutral-800">
@@ -192,7 +193,7 @@ export function TemplateSelect({
                   onChange={(event) => setQuery(event.target.value)}
                   onKeyDown={handleDropdownKeyDown}
                   placeholder={searchPlaceholder}
-                  className="w-full rounded-lg border border-transparent bg-neutral-50 py-2 pl-9 pr-3 text-sm text-neutral-800 outline-none transition-colors placeholder:text-neutral-400 focus:border-blue-400 focus:bg-white dark:bg-[#111] dark:text-neutral-200 dark:focus:bg-black"
+                  className={uiTemplates.inputs.search}
                 />
               </div>
             </div>
@@ -225,7 +226,14 @@ export function TemplateSelect({
                         disabled={option.disabled}
                         onClick={() => handleSelect(option)}
                         onMouseEnter={() => setActiveIndex(optionRenderIndex)}
-                        className={`flex min-h-[44px] w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${isSelected ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300' : isActive ? 'bg-neutral-100 text-neutral-800 dark:bg-[#1a1a1a] dark:text-neutral-200' : 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-[#1a1a1a]'}`}
+                        className={cx(
+                          'flex min-h-[44px] w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+                          isSelected
+                            ? 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300'
+                            : isActive
+                              ? 'bg-neutral-100 text-neutral-800 dark:bg-[#1a1a1a] dark:text-neutral-200'
+                              : 'text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-[#1a1a1a]'
+                        )}
                       >
                         <span className="min-w-0 flex-1 truncate">{option.label}</span>
                         {isSelected && <Check className="h-4 w-4 shrink-0" />}
