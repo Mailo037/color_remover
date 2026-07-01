@@ -7,6 +7,8 @@ import {
   Plus, Eye, RotateCcw, EyeOff, Key, Bot,
   FlaskConical, Search, Check
 } from 'lucide-react';
+import { TemplateSelect } from './components/TemplateSelect';
+import { TemplateNoticeStack } from './components/TemplateNoticeStack';
 
 // --- Utility Functions ---
 const hexToRgb = (hex) => {
@@ -16,6 +18,80 @@ const hexToRgb = (hex) => {
 
 const rgbToHex = (r, g, b) => {
   return '#' + [r, g, b].map(x => Math.max(0, Math.min(255, Math.round(x))).toString(16).padStart(2, '0')).join('');
+};
+
+const GITHUB_REPO = {
+  owner: 'Mailo037',
+  name: 'color_remover',
+  branch: 'master',
+  url: 'https://github.com/Mailo037/color_remover',
+};
+
+const PROVIDER_LABELS = {
+  openai: 'OpenAI',
+  anthropic: 'Anthropic',
+  google: 'Google',
+  replicate: 'Replicate',
+  openrouter: 'OpenRouter',
+  local: 'Local API',
+};
+
+const AI_PROVIDER_OPTIONS = [
+  { value: 'openai', label: 'OpenAI' },
+  { value: 'anthropic', label: 'Anthropic' },
+  { value: 'google', label: 'Google Gemini' },
+  { value: 'replicate', label: 'Replicate' },
+  { value: 'openrouter', label: 'OpenRouter (All Models)' },
+  { value: 'local', label: 'Local API' },
+];
+
+const PROVIDER_DEFAULT_MODELS = {
+  openai: 'gpt-4o-mini',
+  anthropic: 'claude-3-haiku-20240307',
+  google: 'gemini-1.5-flash',
+  replicate: 'black-forest-labs/flux-schnell',
+  openrouter: 'openrouter/auto',
+  local: '',
+};
+
+const STATIC_PROVIDER_MODELS = {
+  openai: [
+    { id: 'gpt-4o-mini', name: 'OpenAI: GPT-4o mini', group: 'OpenAI' },
+    { id: 'gpt-4o', name: 'OpenAI: GPT-4o', group: 'OpenAI' },
+    { id: 'gpt-4.1-mini', name: 'OpenAI: GPT-4.1 mini', group: 'OpenAI' },
+    { id: 'gpt-4.1', name: 'OpenAI: GPT-4.1', group: 'OpenAI' },
+  ],
+  anthropic: [
+    { id: 'claude-3-haiku-20240307', name: 'Anthropic: Claude 3 Haiku', group: 'Anthropic' },
+    { id: 'claude-3-5-haiku-latest', name: 'Anthropic: Claude 3.5 Haiku', group: 'Anthropic' },
+    { id: 'claude-3-5-sonnet-latest', name: 'Anthropic: Claude 3.5 Sonnet', group: 'Anthropic' },
+  ],
+  google: [
+    { id: 'gemini-1.5-flash', name: 'Google: Gemini 1.5 Flash', group: 'Google' },
+    { id: 'gemini-1.5-pro', name: 'Google: Gemini 1.5 Pro', group: 'Google' },
+    { id: 'gemini-2.0-flash', name: 'Google: Gemini 2.0 Flash', group: 'Google' },
+    { id: 'gemini-2.5-flash', name: 'Google: Gemini 2.5 Flash', group: 'Google' },
+    { id: 'gemini-2.5-pro', name: 'Google: Gemini 2.5 Pro', group: 'Google' },
+  ],
+  replicate: [
+    { id: 'black-forest-labs/flux-schnell', name: 'Replicate: FLUX.1 Schnell', group: 'Replicate' },
+    { id: 'black-forest-labs/flux-dev', name: 'Replicate: FLUX.1 Dev', group: 'Replicate' },
+    { id: 'stability-ai/stable-diffusion-3.5-large', name: 'Replicate: Stable Diffusion 3.5 Large', group: 'Replicate' },
+  ],
+  local: [],
+};
+
+const getProviderLabel = (provider) => PROVIDER_LABELS[provider] || provider;
+const getDefaultModelForProvider = (provider) => PROVIDER_DEFAULT_MODELS[provider] || '';
+
+const getProviderApiModel = (provider, model) => {
+  const selectedModel = model || getDefaultModelForProvider(provider);
+  if (!selectedModel || provider === 'openrouter') return selectedModel;
+
+  const providerPrefix = `${provider}/`;
+  return selectedModel.startsWith(providerPrefix)
+    ? selectedModel.slice(providerPrefix.length)
+    : selectedModel;
 };
 
 // --- Reusable UI Components ---
@@ -187,8 +263,8 @@ export default function App() {
   });
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   
-  // Custom Toast
-  const [toasts, setToasts] = useState([]);
+  // Custom notices
+  const [notices, setNotices] = useState([]);
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [isMobileSettingsOpen, setIsMobileSettingsOpen] = useState(false);
   const [isMobileExportOpen, setIsMobileExportOpen] = useState(false);
@@ -197,17 +273,28 @@ export default function App() {
   const mobileSettingsDragStart = useRef(null);
   const mobileSettingsDragDistance = useRef(0);
   
-  const removeToast = (id) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
+  const removeNotice = (id) => {
+    setNotices((prev) => prev.filter((notice) => notice.id !== id));
   };
 
-  const showToast = (message) => {
+  const showNotice = (message) => {
     const id = Date.now() + Math.random().toString(36).substring(2, 9);
-    setToasts((prev) => [...prev, { id, message }]);
+    setNotices((prev) => [...prev, { id, message }]);
     setTimeout(() => {
-      removeToast(id);
+      removeNotice(id);
     }, 4500);
   };
+
+  // Local install update check
+  const [updateInfo, setUpdateInfo] = useState({
+    available: false,
+    canPull: false,
+    localHash: import.meta.env.VITE_APP_COMMIT_HASH || '',
+    remoteHash: '',
+    branch: import.meta.env.VITE_APP_BRANCH || GITHUB_REPO.branch,
+    message: '',
+  });
+  const [isUpdatingApp, setIsUpdatingApp] = useState(false);
 
   // AI Integration Settings
   const [aiEnabled, setAiEnabled] = useState(() => {
@@ -233,18 +320,150 @@ export default function App() {
   const [modelSearchQuery, setModelSearchQuery] = useState('');
   const [models, setModels] = useState([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [isCustomModelEntry, setIsCustomModelEntry] = useState(false);
 
-  const filteredModels = models.filter(m => {
+  const providerModelOptions = aiProvider === 'openrouter' ? models : (STATIC_PROVIDER_MODELS[aiProvider] || []);
+  const selectedModelLabel = providerModelOptions.find((m) => m.id === aiModel)?.name || aiModel || `Default: ${getDefaultModelForProvider(aiProvider) || getProviderLabel(aiProvider)}`;
+  const isCustomAiModel = Boolean(aiModel && !providerModelOptions.some((m) => m.id === aiModel));
+  const providerHasOnlyCustomModels = providerModelOptions.length === 0 && !getDefaultModelForProvider(aiProvider);
+  const shouldShowCustomModelInput = isCustomModelEntry || isCustomAiModel || providerHasOnlyCustomModels;
+  const modelSelectValue = (isCustomModelEntry || isCustomAiModel) ? '__custom' : aiModel;
+  const modelSelectOptions = [
+    {
+      label: 'Default',
+      options: [
+        {
+          value: '',
+          label: getDefaultModelForProvider(aiProvider) ? `Default (${getDefaultModelForProvider(aiProvider)})` : 'No default model',
+        },
+      ],
+    },
+    ...Object.entries(providerModelOptions.reduce((acc, model) => {
+      if (!acc[model.group]) acc[model.group] = [];
+      acc[model.group].push(model);
+      return acc;
+    }, {})).map(([groupName, groupModels]) => ({
+      label: groupName,
+      options: groupModels.map((model) => ({
+        value: model.id,
+        label: model.name,
+        searchText: model.id,
+      })),
+    })),
+    {
+      label: 'Custom',
+      options: [{ value: '__custom', label: 'Custom model ID...' }],
+    },
+  ];
+
+  const filteredModels = providerModelOptions.filter(m => {
     const matchesSearch = m.name.toLowerCase().includes(modelSearchQuery.toLowerCase()) || m.id.toLowerCase().includes(modelSearchQuery.toLowerCase());
-    let matchesProvider = true;
-    if (aiProvider !== 'openrouter' && aiProvider !== 'local' && aiProvider !== 'replicate') {
-      matchesProvider = m.id.startsWith(aiProvider + '/');
-    }
-    return matchesSearch && matchesProvider;
+    return matchesSearch;
   });
 
+  const checkForUpdates = useCallback(async ({ signal } = {}) => {
+    if (signal?.aborted) return;
+
+    try {
+      try {
+        const response = await fetch('/__color_remover_version', {
+          cache: 'no-store',
+          signal,
+          headers: { Accept: 'application/json' },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data?.ok) {
+            setUpdateInfo((prev) => ({
+              ...prev,
+              available: Boolean(data.updateAvailable),
+              canPull: Boolean(data.canPull),
+              localHash: data.localHash || prev.localHash,
+              remoteHash: data.remoteHash || prev.remoteHash,
+              branch: data.branch || prev.branch,
+              message: data.updateAvailable ? `Remote ${data.remoteShortHash}` : '',
+            }));
+            return;
+          }
+        }
+      } catch (error) {
+        if (error.name === 'AbortError') return;
+      }
+
+      const localHash = import.meta.env.VITE_APP_COMMIT_HASH || '';
+      if (!localHash) return;
+
+      const githubResponse = await fetch(`https://api.github.com/repos/${GITHUB_REPO.owner}/${GITHUB_REPO.name}/commits/${GITHUB_REPO.branch}`, {
+        cache: 'no-store',
+        signal,
+        headers: { Accept: 'application/vnd.github+json' },
+      });
+
+      if (!githubResponse.ok) return;
+
+      const githubData = await githubResponse.json();
+      const remoteHash = githubData?.sha || '';
+
+      setUpdateInfo((prev) => ({
+        ...prev,
+        available: Boolean(remoteHash && localHash && remoteHash !== localHash),
+        canPull: false,
+        localHash,
+        remoteHash,
+        branch: GITHUB_REPO.branch,
+        message: remoteHash ? `Remote ${remoteHash.slice(0, 7)}` : '',
+      }));
+    } catch (error) {
+      if (error.name !== 'AbortError') {
+        console.error('Failed to check for updates', error);
+      }
+    }
+  }, []);
+
+  const handleUpdateNow = async () => {
+    if (isUpdatingApp) return;
+
+    if (!updateInfo.canPull) {
+      window.open(GITHUB_REPO.url, '_blank', 'noopener,noreferrer');
+      showNotice('Opening GitHub for the latest version.');
+      return;
+    }
+
+    setIsUpdatingApp(true);
+
+    try {
+      const response = await fetch('/__color_remover_update', {
+        method: 'POST',
+        headers: { Accept: 'application/json' },
+      });
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok || !data?.ok) {
+        throw new Error(data?.error || `Update failed with HTTP ${response.status}`);
+      }
+
+      setUpdateInfo((prev) => ({
+        ...prev,
+        available: false,
+        localHash: data.after || prev.remoteHash,
+        remoteHash: data.after || prev.remoteHash,
+        message: data.pulled ? 'Updated' : 'Already current',
+      }));
+      showNotice(data.pulled ? 'Update pulled. Reloading the app...' : 'Already up to date.');
+
+      if (data.pulled) {
+        setTimeout(() => window.location.reload(), 1200);
+      }
+    } catch (error) {
+      showNotice(`Update failed: ${error.message}`);
+    } finally {
+      setIsUpdatingApp(false);
+    }
+  };
+
   useEffect(() => {
-    if (isTestPopoverOpen && models.length === 0) {
+    if ((isTestPopoverOpen || (aiEnabled && aiProvider === 'openrouter')) && models.length === 0) {
       setIsLoadingModels(true);
       fetch('https://openrouter.ai/api/v1/models')
         .then(res => res.json())
@@ -263,11 +482,24 @@ export default function App() {
         .catch(err => console.error("Failed to fetch models", err))
         .finally(() => setIsLoadingModels(false));
     }
-  }, [isTestPopoverOpen, models.length]);
+  }, [aiEnabled, aiProvider, isTestPopoverOpen, models.length]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    checkForUpdates({ signal: controller.signal });
+    const intervalId = window.setInterval(() => {
+      checkForUpdates();
+    }, 10 * 60 * 1000);
+
+    return () => {
+      controller.abort();
+      window.clearInterval(intervalId);
+    };
+  }, [checkForUpdates]);
 
   const handleTestConnection = async () => {
     if (!apiKey) {
-      showToast("Please enter an API key first.");
+      showNotice("Please enter an API key first.");
       return;
     }
     
@@ -275,6 +507,7 @@ export default function App() {
     
     try {
       let response;
+      const selectedModel = getProviderApiModel(aiProvider, aiModel);
       if (aiProvider === 'openrouter') {
         response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
@@ -283,7 +516,7 @@ export default function App() {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            model: aiModel || 'openrouter/auto',
+            model: selectedModel,
             messages: [{ role: 'user', content: 'Test' }]
           })
         });
@@ -295,12 +528,12 @@ export default function App() {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            model: aiModel || 'gpt-3.5-turbo',
+            model: selectedModel,
             messages: [{ role: 'user', content: 'Test' }]
           })
         });
       } else if (aiProvider === 'google') {
-         const actualModel = aiModel ? aiModel.replace('google/', '') : 'gemini-1.5-flash';
+         const actualModel = selectedModel;
          response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${actualModel}:generateContent?key=${apiKey}`, {
            method: 'POST',
            headers: { 'Content-Type': 'application/json' },
@@ -318,7 +551,7 @@ export default function App() {
              'anthropic-dangerous-direct-browser-access': 'true'
            },
            body: JSON.stringify({
-             model: aiModel ? aiModel.replace('anthropic/', '') : 'claude-3-haiku-20240307',
+             model: selectedModel,
              messages: [{ role: 'user', content: 'Test' }],
              max_tokens: 10
            })
@@ -326,12 +559,12 @@ export default function App() {
       } else {
          // Fallback for local or replicate
          setTimeout(() => {
-            setIsTestingKey(false);
-            setIsTestPopoverOpen(false);
-            showToast(`Connection to ${aiProvider} (${aiModel || 'default model'}) successful!`);
-         }, 1200);
-         return;
-      }
+             setIsTestingKey(false);
+             setIsTestPopoverOpen(false);
+             showNotice(`Connection to ${aiProvider} (${selectedModel || 'default model'}) successful!`);
+          }, 1200);
+          return;
+       }
 
       const isJson = response.headers.get('content-type')?.includes('application/json');
       const data = isJson ? await response.json() : null;
@@ -348,18 +581,18 @@ export default function App() {
       
       setIsTestingKey(false);
       setIsTestPopoverOpen(false);
-      showToast(`Connection to ${aiProvider} (${aiModel || 'default model'}) successful!`);
+      showNotice(`Connection to ${aiProvider} (${selectedModel || 'default model'}) successful!`);
       
     } catch (error) {
       setIsTestingKey(false);
-      showToast(`Error: ${error.message === 'Failed to fetch' ? 'Network or CORS Error (Check API URL/Key)' : error.message}`);
+      showNotice(`Error: ${error.message === 'Failed to fetch' ? 'Network or CORS Error (Check API URL/Key)' : error.message}`);
     }
   };
 
   const handleAiGeneration = async () => {
     if (!aiPrompt.trim()) return;
     if (!apiKey) {
-      showToast("Please enter an API key first.");
+      showNotice("Please enter an API key first.");
       return;
     }
     
@@ -367,6 +600,7 @@ export default function App() {
     
     try {
       let response;
+      const selectedModel = getProviderApiModel(aiProvider, aiModel);
       if (aiProvider === 'openrouter') {
         response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
           method: 'POST',
@@ -375,7 +609,7 @@ export default function App() {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            model: aiModel || 'openrouter/auto',
+            model: selectedModel,
             messages: [{ role: 'user', content: aiPrompt }]
           })
         });
@@ -387,12 +621,12 @@ export default function App() {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            model: aiModel || 'gpt-3.5-turbo',
+            model: selectedModel,
             messages: [{ role: 'user', content: aiPrompt }]
           })
         });
       } else if (aiProvider === 'google') {
-         const actualModel = aiModel ? aiModel.replace('google/', '') : 'gemini-1.5-flash';
+         const actualModel = selectedModel;
          response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${actualModel}:generateContent?key=${apiKey}`, {
            method: 'POST',
            headers: { 'Content-Type': 'application/json' },
@@ -410,19 +644,19 @@ export default function App() {
              'anthropic-dangerous-direct-browser-access': 'true'
            },
            body: JSON.stringify({
-             model: aiModel ? aiModel.replace('anthropic/', '') : 'claude-3-haiku-20240307',
+             model: selectedModel,
              messages: [{ role: 'user', content: aiPrompt }],
              max_tokens: 100
            })
          });
       } else {
          // Fallback for local or replicate
-         setTimeout(() => {
-            setIsProcessing(false);
-            showToast(`AI Generation triggered via ${aiProvider} API using prompt: "${aiPrompt}"`);
-         }, 1500);
-         return;
-      }
+          setTimeout(() => {
+             setIsProcessing(false);
+             showNotice(`AI Generation triggered via ${aiProvider} (${selectedModel || 'default model'}) using prompt: "${aiPrompt}"`);
+          }, 1500);
+          return;
+       }
 
       const isJson = response.headers.get('content-type')?.includes('application/json');
       const data = isJson ? await response.json() : null;
@@ -438,11 +672,11 @@ export default function App() {
       }
       
       setIsProcessing(false);
-      showToast(`AI Generation triggered via ${aiProvider} API using prompt: "${aiPrompt}"`);
+      showNotice(`AI Generation triggered via ${aiProvider} (${selectedModel || 'default model'}) using prompt: "${aiPrompt}"`);
       
     } catch (error) {
       setIsProcessing(false);
-      showToast(`Error: ${error.message === 'Failed to fetch' ? 'Network or CORS Error (Check API URL/Key)' : error.message}`);
+      showNotice(`Error: ${error.message === 'Failed to fetch' ? 'Network or CORS Error (Check API URL/Key)' : error.message}`);
     }
   };
 
@@ -1156,13 +1390,31 @@ export default function App() {
       <div className="min-h-[100dvh] flex flex-col bg-neutral-50 dark:bg-[#0a0a0a] text-neutral-900 dark:text-neutral-100 font-sans transition-colors duration-200">
         
         {/* Topbar */}
-        <header className="sticky top-0 z-[100] bg-white/85 dark:bg-[#111]/85 backdrop-blur-xl border-b border-neutral-200 dark:border-neutral-800 px-3 sm:px-6 py-2.5 sm:py-3 app-safe-top flex items-center justify-between gap-3 shadow-sm">
-          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+        <header className="sticky top-0 z-[100] bg-white/85 dark:bg-[#111]/85 backdrop-blur-xl border-b border-neutral-200 dark:border-neutral-800 px-3 sm:px-6 py-2.5 sm:py-3 app-safe-top flex flex-wrap items-center justify-between gap-2 sm:gap-3 shadow-sm">
+          <div className="order-1 flex items-center gap-2.5 sm:gap-3 min-w-0">
             <img src="/favicon.png" alt="Logo" className="w-8 h-8 sm:w-9 sm:h-9 object-contain drop-shadow-sm hover:scale-105 transition-transform" />
             <h1 className="hidden min-[380px]:block text-base sm:text-xl font-bold tracking-tight text-neutral-900 dark:text-white truncate">Color Remover</h1>
           </div>
+
+          {updateInfo.available && (
+            <button
+              type="button"
+              onClick={handleUpdateNow}
+              disabled={isUpdatingApp}
+              className="order-3 flex min-h-[40px] w-full basis-full items-center justify-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700 shadow-sm transition-all hover:border-blue-300 hover:bg-blue-100 active:scale-[0.99] disabled:cursor-wait disabled:opacity-80 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-200 dark:hover:bg-blue-500/20 sm:order-2 sm:min-h-[36px] sm:w-auto sm:basis-auto sm:px-4"
+              title={updateInfo.message || 'A new version is available'}
+              aria-live="polite"
+            >
+              <span className="h-2 w-2 shrink-0 rounded-full bg-blue-500 shadow-[0_0_0_4px_rgba(59,130,246,0.14)]" />
+              <span className="whitespace-nowrap">New Version</span>
+              <span className="min-w-0 truncate font-medium text-blue-600/80 dark:text-blue-200/80">
+                {isUpdatingApp ? 'Pulling latest commit...' : updateInfo.canPull ? 'Update now' : 'View on GitHub'}
+              </span>
+              <Download className={`h-3.5 w-3.5 shrink-0 ${isUpdatingApp ? 'animate-bounce' : ''}`} />
+            </button>
+          )}
           
-          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+          <div className="order-2 flex items-center gap-1.5 sm:order-3 sm:gap-3 shrink-0">
             <div className="flex bg-neutral-100/80 dark:bg-[#1a1a1a]/80 rounded-full border border-neutral-200 dark:border-neutral-800 p-1">
               <button onClick={handleUndo} disabled={historyIndex <= 0} className="w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center rounded-full hover:bg-white dark:hover:bg-[#2a2a2a] disabled:opacity-30 disabled:hover:bg-transparent transition-colors active:scale-95" title="Undo (Ctrl+Z)" aria-label="Undo">
                 <Undo2 className="w-4 h-4 text-neutral-600 dark:text-neutral-300" />
@@ -1979,8 +2231,8 @@ export default function App() {
                         </button>
                         
                         {isTestPopoverOpen && (
-                          <div className="fixed inset-x-4 top-[calc(1rem+env(safe-area-inset-top))] bottom-[calc(1rem+env(safe-area-inset-bottom))] sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[340px] sm:max-h-none bg-white dark:bg-[#0f0f0f] border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-2xl z-[400] animate-in fade-in zoom-in-95 duration-200">
-                            <div className="p-4 min-h-0 h-full sm:h-auto flex flex-col gap-4">
+                          <div className="fixed inset-x-4 top-[calc(1rem+env(safe-area-inset-top))] bottom-[calc(1rem+env(safe-area-inset-bottom))] flex max-h-[calc(100dvh-2rem)] flex-col bg-white dark:bg-[#0f0f0f] border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-2xl z-[400] animate-in fade-in zoom-in-95 duration-200 sm:inset-auto sm:left-1/2 sm:top-1/2 sm:w-[420px] sm:max-w-[calc(100vw-2rem)] sm:max-h-[calc(100dvh-3rem)] sm:-translate-x-1/2 sm:-translate-y-1/2">
+                            <div className="p-4 min-h-0 h-full flex flex-col gap-4">
                               <div className="flex items-center justify-between gap-3 shrink-0">
                                 <h5 className="font-semibold text-neutral-800 dark:text-neutral-200 text-sm">Select model to test</h5>
                                 <button
@@ -1989,24 +2241,24 @@ export default function App() {
                                     setIsTestPopoverOpen(false);
                                     setIsModelDropdownOpen(false);
                                   }}
-                                  className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-100 text-neutral-500 transition-colors hover:text-neutral-800 active:scale-95 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-100 sm:hidden"
+                                  className="flex h-9 w-9 items-center justify-center rounded-full bg-neutral-100 text-neutral-500 transition-colors hover:text-neutral-800 active:scale-95 dark:bg-neutral-800 dark:text-neutral-400 dark:hover:text-neutral-100"
                                   aria-label="Close model test"
                                 >
                                   <X className="h-4 w-4" />
                                 </button>
                               </div>
                               
-                              <div className="relative min-h-0 flex-1 sm:flex-none">
+                              <div className="relative min-h-0 flex flex-col">
                                 <button 
                                   onClick={() => setIsModelDropdownOpen(!isModelDropdownOpen)}
                                   className="w-full bg-white dark:bg-black border border-neutral-200 dark:border-neutral-800 text-neutral-800 dark:text-neutral-200 rounded-lg px-3 py-2.5 min-h-[44px] text-sm font-semibold flex items-center justify-between hover:border-neutral-300 dark:hover:border-neutral-700 transition-colors"
                                 >
-                                  <span className="truncate pr-2">{aiModel ? models.find(m => m.id === aiModel)?.name || aiModel : 'Select a model to test with'}</span>
+                                  <span className="truncate pr-2">{selectedModelLabel}</span>
                                   <ChevronDown className="w-4 h-4 text-neutral-500 shrink-0" />
                                 </button>
                                 
                                 {isModelDropdownOpen && (
-                                  <div className="static mt-2 sm:absolute sm:left-0 sm:right-0 sm:top-full sm:mt-1 bg-white dark:bg-[#0a0a0a] border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-xl z-[500] flex max-h-[calc(100dvh-12rem)] sm:max-h-none flex-col overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                                  <div className="mt-2 bg-white dark:bg-[#0a0a0a] border border-neutral-200 dark:border-neutral-800 rounded-xl shadow-xl z-[500] flex max-h-[calc(100dvh-12rem)] sm:max-h-[340px] flex-col overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
                                     <div className="p-2 border-b border-neutral-100 dark:border-neutral-800 flex items-center gap-2">
                                       <div className="relative flex-1">
                                         <Search className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-neutral-500" />
@@ -2023,11 +2275,15 @@ export default function App() {
                                       </span>
                                     </div>
                                     
-                                    <div className="overflow-y-auto custom-scrollbar max-h-[calc(100dvh-18rem)] sm:max-h-[240px] flex-1 px-1 pb-1 pt-0">
+                                    <div className="overflow-y-auto custom-scrollbar max-h-[calc(100dvh-18rem)] sm:max-h-[280px] flex-1 px-1 pb-1 pt-0">
                                       {isLoadingModels ? (
                                         <div className="flex flex-col items-center justify-center py-8 text-neutral-400">
                                           <div className="w-6 h-6 border-2 border-neutral-400 border-t-transparent rounded-full animate-spin mb-2" />
                                           <span className="text-xs">Loading OpenRouter models...</span>
+                                        </div>
+                                      ) : filteredModels.length === 0 ? (
+                                        <div className="px-3 py-8 text-center text-xs text-neutral-400">
+                                          No models found for {getProviderLabel(aiProvider)}.
                                         </div>
                                       ) : Object.entries(
                                         filteredModels.reduce((acc, model) => {
@@ -2045,6 +2301,7 @@ export default function App() {
                                               key={model.id}
                                               onClick={() => {
                                                 setAiModel(model.id);
+                                                setIsCustomModelEntry(false);
                                                 setIsModelDropdownOpen(false);
                                                 setModelSearchQuery('');
                                               }}
@@ -2067,8 +2324,8 @@ export default function App() {
                                   handleTestConnection();
                                   setIsTestPopoverOpen(false);
                                 }}
-                                disabled={isTestingKey || !aiModel}
-                                className={`w-full py-2.5 min-h-[44px] rounded-lg text-sm font-semibold transition-all ${!aiModel ? 'bg-neutral-200 dark:bg-neutral-800 text-neutral-400 cursor-not-allowed' : 'bg-[#414389] hover:bg-[#4b4e9f] text-white shadow-md hover:shadow-lg active:scale-[0.98]'}`}
+                                disabled={isTestingKey || (!aiModel && !getDefaultModelForProvider(aiProvider))}
+                                className={`w-full py-2.5 min-h-[44px] rounded-lg text-sm font-semibold transition-all ${!aiModel && !getDefaultModelForProvider(aiProvider) ? 'bg-neutral-200 dark:bg-neutral-800 text-neutral-400 cursor-not-allowed' : 'bg-[#414389] hover:bg-[#4b4e9f] text-white shadow-md hover:shadow-lg active:scale-[0.98]'}`}
                               >
                                 {isTestingKey ? 'Testing...' : 'Run Test'}
                               </button>
@@ -2090,24 +2347,57 @@ export default function App() {
                   <>
                     <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
                       <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider block">Provider</label>
-                      <div className="relative">
-                        <select 
-                          value={aiProvider}
-                          onChange={(e) => {
-                            setAiProvider(e.target.value);
-                            setAiModel('');
-                          }}
-                          className="w-full bg-neutral-50 dark:bg-[#111] border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-xl px-4 py-3 min-h-[44px] appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
-                        >
-                          <option value="openai">OpenAI (DALL-E)</option>
-                          <option value="anthropic">Anthropic (Claude)</option>
-                          <option value="google">Google (Gemini)</option>
-                          <option value="replicate">Replicate (Stable Diffusion)</option>
-                          <option value="openrouter">OpenRouter (All Models)</option>
-                          <option value="local">Local API</option>
-                        </select>
-                        <ChevronDown className="w-4 h-4 absolute right-4 top-1/2 -translate-y-1/2 text-neutral-400 pointer-events-none" />
-                      </div>
+                      <TemplateSelect
+                        value={aiProvider}
+                        onChange={(nextProvider) => {
+                          setAiProvider(nextProvider);
+                          setAiModel('');
+                          setIsCustomModelEntry(false);
+                        }}
+                        options={AI_PROVIDER_OPTIONS}
+                        ariaLabel="Provider"
+                        placeholder="Choose provider"
+                      />
+                    </div>
+
+                    <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <label className="text-xs font-medium text-neutral-500 uppercase tracking-wider block">Model</label>
+                      <TemplateSelect
+                        value={modelSelectValue}
+                        onChange={(nextModel) => {
+                          if (nextModel === '__custom') {
+                            setIsCustomModelEntry(true);
+                            if (!isCustomAiModel) setAiModel('');
+                            return;
+                          }
+
+                          setIsCustomModelEntry(false);
+                          setAiModel(nextModel);
+                        }}
+                        options={modelSelectOptions}
+                        ariaLabel="Model"
+                        placeholder="Choose model"
+                        searchable
+                        searchPlaceholder={`Search ${getProviderLabel(aiProvider)} models`}
+                        emptyMessage={`No models found for ${getProviderLabel(aiProvider)}.`}
+                      />
+
+                      {aiProvider === 'openrouter' && isLoadingModels && providerModelOptions.length === 0 && (
+                        <p className="text-xs text-neutral-400">Loading OpenRouter models...</p>
+                      )}
+
+                      {shouldShowCustomModelInput && (
+                        <input
+                          type="text"
+                          value={aiModel}
+                          onChange={(e) => setAiModel(e.target.value)}
+                          placeholder={`Enter a ${getProviderLabel(aiProvider)} model ID`}
+                          spellCheck="false"
+                          className="w-full bg-neutral-50 dark:bg-[#111] border border-neutral-200 dark:border-neutral-800 text-neutral-700 dark:text-neutral-300 rounded-xl px-4 py-3 min-h-[44px] focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                        />
+                      )}
+
+                      <p className="text-xs text-neutral-400 leading-relaxed">The selected model is used for AI edits and connection tests.</p>
                     </div>
 
                     <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-300">
@@ -2159,18 +2449,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Custom Toast Notification */}
-      <div className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] sm:bottom-6 left-1/2 -translate-x-1/2 z-[500] flex flex-col items-center gap-2 pointer-events-none w-[calc(100vw-2rem)] sm:w-max sm:max-w-[90vw]">
-        {toasts.map((toast) => (
-          <div key={toast.id} className="bg-neutral-900 dark:bg-white text-white dark:text-neutral-900 pl-4 pr-2 py-2.5 rounded-2xl shadow-2xl font-medium text-sm flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300 pointer-events-auto border border-white/10 dark:border-black/10 transition-all w-full">
-            <Sparkles className="w-5 h-5 text-blue-400 dark:text-blue-600 shrink-0" />
-            <span className="break-words flex-1 pr-2">{toast.message}</span>
-            <button onClick={() => removeToast(toast.id)} className="text-neutral-400 hover:text-white dark:text-neutral-500 dark:hover:text-black transition-colors rounded-full w-9 h-9 flex items-center justify-center hover:bg-white/10 dark:hover:bg-black/10 shrink-0" aria-label="Dismiss notification">
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        ))}
-      </div>
+      <TemplateNoticeStack notices={notices} onDismiss={removeNotice} />
     </div>
   );
 }
