@@ -30,7 +30,7 @@ export const TopBar = ({
         <span className="h-2 w-2 shrink-0 rounded-full bg-blue-500 shadow-[0_0_0_4px_rgba(59,130,246,0.14)]" />
         <span className="whitespace-nowrap">New Version</span>
         <span className="min-w-0 truncate font-medium text-blue-600/80 dark:text-blue-200/80">
-          {isUpdatingApp ? 'Pulling latest commit...' : updateInfo.canPull ? 'Update now' : 'View on GitHub'}
+          {isUpdatingApp ? (updateInfo.source === 'release' ? 'Installing latest release...' : 'Pulling latest commit...') : updateInfo.canPull ? 'Update now' : 'View on GitHub'}
         </span>
         <Download className={`h-3.5 w-3.5 shrink-0 ${isUpdatingApp ? 'animate-bounce' : ''}`} />
       </button>

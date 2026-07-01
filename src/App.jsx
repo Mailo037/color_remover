@@ -188,6 +188,7 @@ export default function App() {
 
   // Local install update check
   const [updateInfo, setUpdateInfo] = useState({
+    source: 'git',
     available: false,
     canPull: false,
     localHash: import.meta.env.VITE_APP_COMMIT_HASH || '',
@@ -266,6 +267,29 @@ export default function App() {
     if (signal?.aborted) return;
 
     try {
+      if (window.colorRemoverDesktopUpdater?.checkForUpdates) {
+        try {
+          const data = await window.colorRemoverDesktopUpdater.checkForUpdates();
+          if (signal?.aborted) return;
+
+          if (data?.ok) {
+            setUpdateInfo((prev) => ({
+              ...prev,
+              source: 'release',
+              available: Boolean(data.updateAvailable),
+              canPull: Boolean(data.canUpdate && data.updateAvailable),
+              localHash: data.currentVersion ? `v${data.currentVersion}` : prev.localHash,
+              remoteHash: data.latestVersion ? `v${data.latestVersion}` : prev.remoteHash,
+              branch: 'latest release',
+              message: data.updateAvailable && data.latestVersion ? `Release v${data.latestVersion}` : '',
+            }));
+            return;
+          }
+        } catch (error) {
+          if (error.name === 'AbortError') return;
+        }
+      }
+
       try {
         const response = await fetch('/__color_remover_version', {
           cache: 'no-store',
@@ -295,7 +319,8 @@ export default function App() {
       const localHash = import.meta.env.VITE_APP_COMMIT_HASH || '';
       if (!localHash) return;
 
-      const githubResponse = await fetch(`https://api.github.com/repos/${GITHUB_REPO.owner}/${GITHUB_REPO.name}/commits/${GITHUB_REPO.branch}`, {
+      const releaseBranch = import.meta.env.VITE_APP_BRANCH || GITHUB_REPO.branch;
+      const githubResponse = await fetch(`https://api.github.com/repos/${GITHUB_REPO.owner}/${GITHUB_REPO.name}/commits/${releaseBranch}`, {
         cache: 'no-store',
         signal,
         headers: { Accept: 'application/vnd.github+json' },
@@ -312,7 +337,7 @@ export default function App() {
         canPull: false,
         localHash,
         remoteHash,
-        branch: GITHUB_REPO.branch,
+        branch: releaseBranch,
         message: remoteHash ? `Remote ${remoteHash.slice(0, 7)}` : '',
       }));
     } catch (error) {
@@ -324,6 +349,31 @@ export default function App() {
 
   const handleUpdateNow = async () => {
     if (isUpdatingApp) return;
+
+    if (updateInfo.source === 'release' && window.colorRemoverDesktopUpdater?.installUpdate) {
+      if (!updateInfo.canPull) {
+        window.open(GITHUB_REPO.url, '_blank', 'noopener,noreferrer');
+        showNotice('Opening GitHub for the latest release.');
+        return;
+      }
+
+      setIsUpdatingApp(true);
+
+      try {
+        const data = await window.colorRemoverDesktopUpdater.installUpdate();
+
+        if (!data?.ok) {
+          throw new Error(data?.error || 'Unable to install the latest release.');
+        }
+
+        showNotice('Latest release downloaded. Restarting to install...');
+      } catch (error) {
+        showNotice(`Update failed: ${error.message}`);
+        setIsUpdatingApp(false);
+      }
+
+      return;
+    }
 
     if (!updateInfo.canPull) {
       window.open(GITHUB_REPO.url, '_blank', 'noopener,noreferrer');
@@ -745,35 +795,7 @@ export default function App() {
     };
   }, [snapMenu]);
 
-  // Undo / Redo Actions
-  const handleUndo = () => {
-    if (historyIndex > 0) {
-      setIsTraversingHistory(true);
-      const prevState = history[historyIndex - 1];
-      setHistoryIndex(historyIndex - 1);
-      applyHistoryState(prevState);
-    }
-  };
-
-  const handleRedo = () => {
-    if (historyIndex < history.length - 1) {
-      setIsTraversingHistory(true);
-      const nextState = history[historyIndex + 1];
-      setHistoryIndex(historyIndex + 1);
-      applyHistoryState(nextState);
-    }
-  };
-
-  // Keep the first color in the colors array synced with targetColor
-  useEffect(() => {
-    setColors((prev) => {
-      const arr = [...prev];
-      arr[0] = targetColor;
-      return arr;
-    });
-  }, [targetColor]);
-
-  const applyHistoryState = (state) => {
+  const applyHistoryState = useCallback((state) => {
     setTargetColor(state.targetColor); setTolerance(state.tolerance); setSmoothness(state.smoothness);
     setScale(state.scale); setAutoCrop(state.autoCrop); setPixelFix(state.pixelFix);
     setReplaceTransparent(state.replaceTransparent); setReplaceColor(state.replaceColor);
@@ -795,7 +817,35 @@ export default function App() {
     if (typeof state.webpQuality !== 'undefined') setWebpQuality(state.webpQuality);
     if (typeof state.jpegQuality !== 'undefined') setJpegQuality(state.jpegQuality);
     if (typeof state.jpegBackground !== 'undefined') setJpegBackground(state.jpegBackground);
-  };
+  }, []);
+
+  // Undo / Redo Actions
+  const handleUndo = useCallback(() => {
+    if (historyIndex > 0) {
+      setIsTraversingHistory(true);
+      const prevState = history[historyIndex - 1];
+      setHistoryIndex(historyIndex - 1);
+      applyHistoryState(prevState);
+    }
+  }, [applyHistoryState, history, historyIndex]);
+
+  const handleRedo = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      setIsTraversingHistory(true);
+      const nextState = history[historyIndex + 1];
+      setHistoryIndex(historyIndex + 1);
+      applyHistoryState(nextState);
+    }
+  }, [applyHistoryState, history, historyIndex]);
+
+  // Keep the first color in the colors array synced with targetColor
+  useEffect(() => {
+    setColors((prev) => {
+      const arr = [...prev];
+      arr[0] = targetColor;
+      return arr;
+    });
+  }, [targetColor]);
 
   // Reset all settings to their defaults and clear stored values.
   const resetSettings = () => {
@@ -874,7 +924,7 @@ export default function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [historyIndex, history, isMaskEditorOpen, maskStrokes.length, closeZoomedImage]);
+  }, [historyIndex, history, isMaskEditorOpen, maskStrokes.length, closeZoomedImage, handleRedo, handleUndo]);
 
   // Handle image load animation
   useEffect(() => {

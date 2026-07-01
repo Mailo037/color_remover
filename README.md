@@ -44,6 +44,15 @@ Make sure you have [Node.js](https://nodejs.org/) installed on your machine.
 
 5. Open your browser and visit `http://localhost:5175`.
 
+## Desktop App
+
+The Windows desktop app uses Electron and packages the same Vite/React interface.
+
+- Run locally: `npm run desktop`
+- Build the Windows installer: `npm run dist:win`
+- Release assets are generated in `release/`: the setup `.exe`, `.exe.blockmap`, and `latest.yml`.
+- Packaged desktop updates check the latest GitHub release and install through `electron-updater`.
+
 ## Technologies Used
 
 - **React** - UI Library
