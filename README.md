@@ -4,17 +4,17 @@ A modern, fast, and fully in-browser tool to effortlessly remove backgrounds, ex
 
 ![Color Remover Preview](public/android-chrome-512x512.png)
 
-## ✨ Features
+## Features
 
-- **🎨 Intelligent Color Removal:** Pick any color to make it transparent using an advanced color-distance algorithm.
-- **⚡ 100% Local Processing:** Uses Web Workers to process images directly in your browser. No images are ever uploaded to a server!
-- **📱 Responsive & Customizable Layout:** Pin the settings panel to the left, right, top, or bottom. Adapts perfectly to any screen size.
-- **✨ Advanced Edge Smoothing:** Creates soft transitions for clean, professional edges without pixelated borders.
-- **🎯 Multi-Color Target:** Select and remove multiple different colors at once.
-- **✂️ Auto-Crop:** Automatically trims empty transparent space around your subject.
-- **💾 Modern Formats:** Download your processed images as high-quality PNGs or compressed WebP files.
+- **Intelligent Color Removal:** Pick any color to make it transparent using an advanced color-distance algorithm.
+- **100% Local Processing:** Uses Web Workers to process images directly in your browser. No images are ever uploaded to a server!
+- **Responsive & Customizable Layout:** Pin the settings panel to the left, right, top, or bottom. Adapts perfectly to any screen size.
+- **Advanced Edge Smoothing:** Creates soft transitions for clean, professional edges without pixelated borders.
+- **Multi-Color Target:** Select and remove multiple different colors at once.
+- **Auto-Crop:** Automatically trims empty transparent space around your subject.
+- **Modern Formats:** Download your processed images as high-quality PNGs or compressed WebP files.
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -44,7 +44,7 @@ Make sure you have [Node.js](https://nodejs.org/) installed on your machine.
 
 5. Open your browser and visit `http://localhost:5175`.
 
-## 🛠️ Technologies Used
+## Technologies Used
 
 - **React** - UI Library
 - **Vite** - Build Tool
@@ -52,6 +52,6 @@ Make sure you have [Node.js](https://nodejs.org/) installed on your machine.
 - **Lucide React** - Icons
 - **Web Workers** - Heavy image processing
 
-## 👨‍💻 Author
+## Author
 
-Made with ❤️ by [Mailo037](https://github.com/Mailo037).
+Made by [Mailo037](https://github.com/Mailo037).
